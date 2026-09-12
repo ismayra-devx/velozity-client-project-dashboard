@@ -69,7 +69,8 @@ export async function getDashboardData(user: AuthUser) {
 
   if (user.role === 'PROJECT_MANAGER') {
     const now = new Date();
-    const endOfWeek = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    // End of 7 days from now (upcoming due dates this week)
+    const endOfWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const [
       projects,

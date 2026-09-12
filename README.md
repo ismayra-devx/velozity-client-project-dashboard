@@ -8,7 +8,7 @@ Velozity is a professional multi-tenant agency management platform designed for 
 
 Velozity is architected around a strict separation of concerns, ensuring security and business rules remain inviolable regardless of the client interface. The backend is built with TypeScript on Node.js and Express, following an enterprise layered structure: decoupled routing, controllers for HTTP transport, domain services encapsulating business logic, Zod-powered schema validation middleware, and Prisma ORM managing a containerized PostgreSQL database. 
 
-Authentication employs short-lived asymmetric JWT access tokens paired with cryptographically secure, HttpOnly, SameSite refresh cookies stored in the database with rotation on every renewal. Role-Based Access Control (RBAC) is enforced at the API layer across every route and database query: Administrators have global oversight, Project Managers are strictly confined to their own created projects, and Developers can only access and transition tasks explicitly assigned to them. 
+Authentication employs short-lived signed JWT access tokens paired with cryptographically secure, HttpOnly, SameSite refresh cookies stored in the database with rotation on every renewal. Role-Based Access Control (RBAC) is enforced at the API layer across every route and database query: Administrators have global oversight, Project Managers are strictly confined to their own created projects, and Developers can only access and transition tasks explicitly assigned to them. 
 
 Real-time collaboration is powered by Socket.IO over WebSocket transport with role-aware room partitioning. Task status transitions emit formatted audit log events to both live connected sockets and persistent database tables. On reconnect, the client fetches the latest 20 relevant missed events directly from PostgreSQL. Scheduled background cron workers evaluate task deadlines independently of user sessions, automatically flagging overdue items and broadcasting system alerts.
 
@@ -19,7 +19,7 @@ Real-time collaboration is powered by Socket.IO over WebSocket transport with ro
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Vite, Lucide Icons, Socket.IO Client.
 - **Backend**: Node.js, Express, TypeScript, Prisma ORM, Socket.IO, Zod, bcrypt, node-cron.
 - **Database**: PostgreSQL 16 (Dockerized).
-- **Security**: JWT (Access Token in memory, Refresh Token in HttpOnly cookie), Helmet, CORS, parameterized queries.
+- **Security**: JWT (Access Token in memory, Refresh Token in HttpOnly cookie), CORS, parameterized queries.
 
 ---
 
@@ -68,7 +68,7 @@ All demo accounts share the password: `Password123!`
 | **PM 1** | Jordan Lee | `pm1@velozity.com` | Manages own projects (*Omnichannel E-Commerce*, *NextGen Telehealth*), assigns tasks, monitors team |
 | **PM 2** | Elena Rostova | `pm2@velozity.com` | Manages own projects (*Cloud Infrastructure Modernization*), strictly isolated from PM 1 |
 | **Dev 1** | Ravi Sharma | `dev1@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
-| **Dev 2** | Elena Rostova | `dev2@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
+| **Dev 2** | Arjun Mehta | `dev2@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
 
 ---
 
@@ -87,14 +87,19 @@ cd velozity-client-project-dashboard
 Create `.env` using `.env.example`:
 ```bash
 cp .env.example .env
+cp .env.example backend/.env
 ```
 
 `.env.example` contents:
 ```env
-DATABASE_URL=postgresql://username:password@localhost:5432/database
-JWT_SECRET=your-jwt-secret
-JWT_REFRESH_SECRET=your-refresh-secret
+DATABASE_URL="postgresql://postgres:postgrespassword@localhost:5432/velozity_db?schema=public"
+JWT_ACCESS_SECRET=your_jwt_access_secret_key_change_in_production
+JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_change_in_production
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=7d
 PORT=5000
+NODE_ENV=development
+CLIENT_URL=http://localhost:5173
 ```
 
 ### 2. Start PostgreSQL via Docker
@@ -141,7 +146,7 @@ npm run dev
 ### 1. Backend Framework Choice: Node.js with Express vs Fastify
 - **Choice**: Node.js with Express (TypeScript).
 - **Justification**:
-  - **Mature Middleware Ecosystem**: Express provides seamless interoperability with essential production middleware (`cookie-parser`, `cors`, `helmet`) and standardized error-handling patterns.
+  - **Mature Middleware Ecosystem**: Express provides seamless interoperability with essential production middleware (`cookie-parser`, `cors`) and standardized error-handling patterns.
   - **Unified HTTP + WebSocket Server**: Native integration between Node's `http.createServer(app)` and Socket.IO engine sharing port `5000` with zero protocol impedance, allowing cookie extraction and JWT validation directly during the WebSocket handshake.
   - **Layered Architecture & Type Safety**: Combined with TypeScript and Zod schema validation middleware, Express provides clean decoupling between HTTP controllers, domain services, database access, and real-time emitters.
   - **Comparison with Fastify**: While Fastify offers micro-benchmark throughput advantages, Express eliminates schema-compilation overhead, has superior middleware ecosystem maturity, and avoids Fastify's plugin encapsulation quirks when integrating Socket.IO and Prisma client lifecycles.

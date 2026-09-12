@@ -72,8 +72,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const socketInstance = io(window.location.origin, {
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const socketInstance = io(socketUrl, {
       auth: { token },
+      transports: ['websocket'],
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
     });

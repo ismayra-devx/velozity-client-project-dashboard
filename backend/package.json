@@ -10,11 +10,11 @@
     "prisma:generate": "prisma generate --schema=../prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=../prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=../prisma/schema.prisma",
-    "seed": "tsx ../prisma/seed.ts"
+    "seed": "node -e \"process.env.NODE_PATH = './node_modules'; require('module').Module._initPaths(); require('child_process').execSync('npx tsx ../prisma/seed.ts', { stdio: 'inherit', env: process.env });\""
   },
   "prisma": {
     "schema": "../prisma/schema.prisma",
-    "seed": "tsx ../prisma/seed.ts"
+    "seed": "node -e \"process.env.NODE_PATH = './node_modules'; require('module').Module._initPaths(); require('child_process').execSync('npx tsx ../prisma/seed.ts', { stdio: 'inherit', env: process.env });\""
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

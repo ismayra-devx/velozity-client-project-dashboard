@@ -59,7 +59,7 @@ async function main() {
   const dev2 = await prisma.user.create({
     data: {
       email: 'dev2@velozity.com',
-      name: 'Elena Rostova',
+      name: 'Arjun Mehta',
       passwordHash,
       role: Role.DEVELOPER,
     },
@@ -445,7 +445,7 @@ async function main() {
       action: 'STATUS_UPDATE',
       fromStatus: TaskStatus.TODO,
       toStatus: TaskStatus.IN_PROGRESS,
-      message: 'Elena Rostova moved Task #9 from To Do → In Progress',
+      message: 'Arjun Mehta moved Task #9 from To Do → In Progress',
       createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
     },
     {
@@ -475,7 +475,7 @@ async function main() {
       action: 'STATUS_UPDATE',
       fromStatus: TaskStatus.IN_REVIEW,
       toStatus: TaskStatus.DONE,
-      message: 'Elena Rostova moved Task #7 from In Review → Done',
+      message: 'Arjun Mehta moved Task #7 from In Review → Done',
       createdAt: new Date(now.getTime() - 8 * 60 * 60 * 1000),
     },
   ];
@@ -522,11 +522,11 @@ async function main() {
   console.log('✅ DATABASE SEEDING COMPLETED SUCCESSFULLY!');
   console.log('---------------------------------------------------------');
   console.log('Demo Credentials (Password for all: Password123!):');
-  console.log('  Admin:           admin@velozity.com');
-  console.log('  Project Manager: pm1@velozity.com (Alex Morgan)');
-  console.log('  Project Manager: pm2@velozity.com (Jordan Lee)');
+  console.log('  Admin:           admin@velozity.com (Sarah Connor)');
+  console.log('  Project Manager: pm1@velozity.com (Jordan Lee)');
+  console.log('  Project Manager: pm2@velozity.com (Elena Rostova)');
   console.log('  Developer:       dev1@velozity.com (Ravi Sharma)');
-  console.log('  Developer:       dev2@velozity.com (Elena Rostova)');
+  console.log('  Developer:       dev2@velozity.com (Arjun Mehta)');
   console.log('  Developer:       dev3@velozity.com (Marcus Chen)');
   console.log('  Developer:       dev4@velozity.com (Priya Patel)');
   console.log('---------------------------------------------------------');
