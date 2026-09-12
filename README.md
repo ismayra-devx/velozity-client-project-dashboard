@@ -10,7 +10,7 @@ Velozity is architected around a strict separation of concerns, ensuring securit
 
 Authentication employs short-lived asymmetric JWT access tokens paired with cryptographically secure, HttpOnly, SameSite refresh cookies stored in the database with rotation on every renewal. Role-Based Access Control (RBAC) is enforced at the API layer across every route and database query: Administrators have global oversight, Project Managers are strictly confined to their own created projects, and Developers can only access and transition tasks explicitly assigned to them. 
 
-Real-time collaboration is powered by Socket.IO over genuine WebSockets with role-aware room partitioning. Task status transitions emit formatted audit log events to both live connected sockets and persistent database tables. If a client disconnects, an offline catch-up endpoint queries PostgreSQL directly upon reconnect, ensuring zero missed events. Scheduled background cron workers evaluate task deadlines independently of user sessions, automatically flagging overdue items and broadcasting system alerts.
+Real-time collaboration is powered by Socket.IO over WebSocket transport with role-aware room partitioning. Task status transitions emit formatted audit log events to both live connected sockets and persistent database tables. On reconnect, the client fetches the latest 20 relevant missed events directly from PostgreSQL. Scheduled background cron workers evaluate task deadlines independently of user sessions, automatically flagging overdue items and broadcasting system alerts.
 
 ---
 
@@ -101,7 +101,7 @@ PORT=5000
 ```bash
 docker-compose up -d
 ```
-Spins up a dedicated PostgreSQL 16 instance on port `5432`.
+Spins up a dedicated PostgreSQL 16 instance on port `5432`. *(Note: Credentials configured in `docker-compose.yml` are strictly for local containerized development and testing).*
 
 ### 3. Initialize Database & Seed
 ```bash
@@ -112,10 +112,10 @@ npm run seed
 ```
 The seed script populates:
 - **1 Admin, 2 PMs, 4 Developers**
-- **4 Projects** across multiple clients
+- **3 Projects** across multiple clients
 - **18 Tasks** across all statuses and priorities
-- **3 Overdue tasks**
-- **15 Activity log entries**
+- **2 Overdue tasks**
+- **Pre-existing activity log entries** (so the activity feed is populated on first load)
 
 ### 4. Run Development Servers
 
@@ -152,7 +152,7 @@ npm run dev
 - **Token Rotation & Revocation**: Every refresh request revokes the existing refresh token record in PostgreSQL and issues a fresh one. If an invalid or expired token is presented, all sessions can be invalidated immediately.
 
 ### 3. WebSocket Implementation & Justification
-- **Technology**: Native WebSockets via Socket.IO engine.
+- **Technology**: Socket.IO over WebSocket transport (`transports: ['websocket']`).
 - **Justification**:
   - Socket.IO provides built-in heartbeat ping/pong failure detection, automatic exponential backoff reconnection, binary safety, and room-based channel partitioning while strictly utilizing standard WebSocket transport (`transports: ['websocket']`, zero long-polling fallback).
 - **Role-Filtered Channel Partitioning**:
@@ -169,7 +169,7 @@ npm run dev
   - **When Bull Queue is Preferred**: In a horizontally autoscaled multi-instance container cluster (e.g. Kubernetes with multiple pods), BullMQ with Redis would be preferred to distribute jobs and prevent duplicate cron execution across instances.
 
 ### 5. Database Relational Design & Indexing Decisions
-PostgreSQL 16 managed via Prisma ORM enforces strict relational integrity with foreign keys and cascade deletions across 6 core entities:
+PostgreSQL 16 managed via Prisma ORM enforces strict relational integrity with foreign keys and cascade deletions across 7 core relational entities:
 - `Client` &rarr; `Project` (1:N, `onDelete: Cascade`)
 - `User` &rarr; `Project` (1:N, `onDelete: Cascade` via `createdById`)
 - `Project` &rarr; `Task` (1:N, `onDelete: Cascade`)
