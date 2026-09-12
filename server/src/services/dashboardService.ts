@@ -53,13 +53,15 @@ export async function getDashboardData(user: AuthUser) {
 
   if (user.role === 'PROJECT_MANAGER') {
     const now = new Date();
-    const endOfWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const endOfWeek = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
     const [
       projects,
+      tasksByStatusRaw,
       tasksByPriorityRaw,
       upcomingTasksThisWeek,
       overdueCount,
+      allPMTasks,
     ] = await Promise.all([
       prisma.project.findMany({
         where: { createdById: user.id },
@@ -68,6 +70,13 @@ export async function getDashboardData(user: AuthUser) {
           _count: { select: { tasks: true } },
         },
         orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.task.groupBy({
+        by: ['status'],
+        where: {
+          project: { createdById: user.id },
+        },
+        _count: { _all: true },
       }),
       prisma.task.groupBy({
         by: ['priority'],
@@ -90,6 +99,7 @@ export async function getDashboardData(user: AuthUser) {
           project: { select: { id: true, name: true } },
         },
         orderBy: { dueDate: 'asc' },
+        take: 6,
       }),
       prisma.task.count({
         where: {
@@ -98,7 +108,27 @@ export async function getDashboardData(user: AuthUser) {
           dueDate: { lt: now },
         },
       }),
+      prisma.task.findMany({
+        where: {
+          project: { createdById: user.id },
+        },
+        include: {
+          assignedTo: { select: { id: true, name: true } },
+          project: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
     ]);
+
+    const tasksByStatus: Record<string, number> = {
+      TODO: 0,
+      IN_PROGRESS: 0,
+      IN_REVIEW: 0,
+      DONE: 0,
+    };
+    tasksByStatusRaw.forEach((item) => {
+      tasksByStatus[item.status] = item._count._all;
+    });
 
     const tasksByPriority: Record<string, number> = {
       LOW: 0,
@@ -110,15 +140,39 @@ export async function getDashboardData(user: AuthUser) {
       tasksByPriority[item.priority] = item._count._all;
     });
 
+    // Compute distinct team members workload
+    const devMap = new Map<string, { id: string; name: string; taskCount: number }>();
+    allPMTasks.forEach((t) => {
+      if (t.assignedTo) {
+        const existing = devMap.get(t.assignedTo.id);
+        if (existing) {
+          existing.taskCount += 1;
+        } else {
+          devMap.set(t.assignedTo.id, {
+            id: t.assignedTo.id,
+            name: t.assignedTo.name,
+            taskCount: 1,
+          });
+        }
+      }
+    });
+
+    const teamWorkload = Array.from(devMap.values());
+    const totalTasks = allPMTasks.length;
+
     return {
       role: 'PROJECT_MANAGER',
       projectsSummary: {
         total: projects.length,
         projects,
       },
+      totalTasks,
+      tasksByStatus,
       tasksByPriority,
-      upcomingDueDatesThisWeek: upcomingTasksThisWeek,
+      upcomingDueDatesThisWeek,
       overdueCount,
+      teamWorkload,
+      myTasks: allPMTasks.slice(0, 5),
     };
   }
 

@@ -31,7 +31,7 @@ async function main() {
   const pm1 = await prisma.user.create({
     data: {
       email: 'pm1@velozity.com',
-      name: 'Alex Morgan',
+      name: 'Jordan Lee',
       passwordHash,
       role: Role.PROJECT_MANAGER,
     },
@@ -40,7 +40,7 @@ async function main() {
   const pm2 = await prisma.user.create({
     data: {
       email: 'pm2@velozity.com',
-      name: 'Jordan Lee',
+      name: 'Elena Rostova',
       passwordHash,
       role: Role.PROJECT_MANAGER,
     },
@@ -112,8 +112,19 @@ async function main() {
   });
 
   console.log('[Seed] Seeding projects...');
-  // Project 1 - Managed by PM 1 (Alex)
+  // Project 1 - Managed by PM 1 (Jordan Lee)
   const project1 = await prisma.project.create({
+    data: {
+      name: 'Omnichannel E-Commerce Redesign',
+      description: 'Unified multi-brand digital storefront with headless CMS and real-time inventory.',
+      status: ProjectStatus.ACTIVE,
+      clientId: clientZenith.id,
+      createdById: pm1.id,
+    },
+  });
+
+  // Project 2 - Managed by PM 1 (Jordan Lee)
+  const project2 = await prisma.project.create({
     data: {
       name: 'NextGen Telehealth Portal',
       description: 'End-to-end HIPAA compliant patient-doctor teleconsultation suite.',
@@ -123,24 +134,13 @@ async function main() {
     },
   });
 
-  // Project 2 - Managed by PM 1 (Alex)
-  const project2 = await prisma.project.create({
+  // Project 3 - Managed by PM 2 (Elena Rostova)
+  const project3 = await prisma.project.create({
     data: {
       name: 'Cloud Infrastructure Modernization',
       description: 'Zero-downtime migration of multi-region microservices to Kubernetes.',
       status: ProjectStatus.ACTIVE,
       clientId: clientNova.id,
-      createdById: pm1.id,
-    },
-  });
-
-  // Project 3 - Managed by PM 2 (Jordan)
-  const project3 = await prisma.project.create({
-    data: {
-      name: 'Omnichannel E-Commerce Redesign',
-      description: 'Unified multi-brand digital storefront with headless CMS and real-time inventory.',
-      status: ProjectStatus.ACTIVE,
-      clientId: clientZenith.id,
       createdById: pm2.id,
     },
   });

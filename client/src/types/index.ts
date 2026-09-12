@@ -116,9 +116,13 @@ export interface PMDashboardMetrics {
     total: number;
     projects: Project[];
   };
+  totalTasks?: number;
+  tasksByStatus?: Record<TaskStatus, number>;
   tasksByPriority: Record<TaskPriority, number>;
   upcomingDueDatesThisWeek: Task[];
   overdueCount: number;
+  teamWorkload?: { id: string; name: string; taskCount: number }[];
+  myTasks?: Task[];
 }
 
 export interface DeveloperDashboardMetrics {
