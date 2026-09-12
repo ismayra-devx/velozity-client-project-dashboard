@@ -1,20 +1,12 @@
 import React from 'react';
-import { LogOut, Users, Shield, Briefcase, Code2, Layers } from 'lucide-react';
+import { LogOut, Users, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { useSocket } from '../context/SocketContext.js';
 import { NotificationDropdown } from './NotificationDropdown.js';
 import { Link, useLocation } from 'react-router-dom';
 
-const DEMO_USERS = [
-  { label: 'Admin (Sarah)', email: 'admin@velozity.com', role: 'ADMIN', icon: Shield },
-  { label: 'PM 1 (Alex)', email: 'pm1@velozity.com', role: 'PM', icon: Briefcase },
-  { label: 'PM 2 (Jordan)', email: 'pm2@velozity.com', role: 'PM', icon: Briefcase },
-  { label: 'Dev 1 (Ravi)', email: 'dev1@velozity.com', role: 'DEV', icon: Code2 },
-  { label: 'Dev 2 (Elena)', email: 'dev2@velozity.com', role: 'DEV', icon: Code2 },
-];
-
 export const Navbar: React.FC = () => {
-  const { user, logout, switchUser } = useAuth();
+  const { user, logout } = useAuth();
   const { isConnected, activeUserCount } = useSocket();
   const location = useLocation();
 
@@ -59,32 +51,6 @@ export const Navbar: React.FC = () => {
                 Task Explorer & Filters
               </Link>
             </nav>
-          </div>
-
-          {/* Quick Demo Switcher for Evaluation */}
-          <div className="hidden lg:flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">
-              Role Switcher:
-            </span>
-            {DEMO_USERS.map((demo) => {
-              const isActive = user.email === demo.email;
-              const Icon = demo.icon;
-              return (
-                <button
-                  key={demo.email}
-                  onClick={() => switchUser(demo.email)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                    isActive
-                      ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/20'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                  title={`Switch to ${demo.label}`}
-                >
-                  <Icon className="w-3 h-3" />
-                  <span>{demo.label}</span>
-                </button>
-              );
-            })}
           </div>
 
           {/* Right Status & Actions */}
