@@ -48,8 +48,9 @@ export async function apiRequest<T = any>(
   try {
     response = await fetch(url, fetchOptions);
 
-    // If on static Vercel host without backend (405 Method Not Allowed or 404), fallback to interactive demo
-    if (response.status === 405 || response.status === 404) {
+    const contentType = response.headers.get('content-type') || '';
+    // If on static Vercel host without backend (405 Method Not Allowed, 404, or HTML rewrite response), fallback to interactive demo
+    if (response.status === 405 || response.status === 404 || contentType.includes('text/html')) {
       return handleDemoRequest<T>(endpoint, options);
     }
   } catch (err) {
