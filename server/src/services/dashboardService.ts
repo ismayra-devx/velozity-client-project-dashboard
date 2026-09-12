@@ -7,12 +7,17 @@ export async function getDashboardData(user: AuthUser) {
     const [
       totalProjects,
       tasksByStatusRaw,
+      tasksByPriorityRaw,
       overdueTaskCount,
       totalUsers,
     ] = await Promise.all([
       prisma.project.count(),
       prisma.task.groupBy({
         by: ['status'],
+        _count: { _all: true },
+      }),
+      prisma.task.groupBy({
+        by: ['priority'],
         _count: { _all: true },
       }),
       prisma.task.count({
@@ -39,6 +44,16 @@ export async function getDashboardData(user: AuthUser) {
       tasksByStatus[item.status] = item._count._all;
     });
 
+    const tasksByPriority: Record<string, number> = {
+      LOW: 0,
+      MEDIUM: 0,
+      HIGH: 0,
+      CRITICAL: 0,
+    };
+    tasksByPriorityRaw.forEach((item) => {
+      tasksByPriority[item.priority] = item._count._all;
+    });
+
     const activeUsersOnline = getActiveUserCount();
 
     return {
@@ -46,6 +61,7 @@ export async function getDashboardData(user: AuthUser) {
       totalProjects,
       totalUsers,
       tasksByStatus,
+      tasksByPriority,
       overdueTaskCount,
       activeUsersOnline,
     };

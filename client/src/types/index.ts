@@ -106,6 +106,7 @@ export interface AdminDashboardMetrics {
   totalProjects: number;
   totalUsers: number;
   tasksByStatus: Record<TaskStatus, number>;
+  tasksByPriority?: Record<TaskPriority, number>;
   overdueTaskCount: number;
   activeUsersOnline: number;
 }

@@ -6,16 +6,21 @@ import {
   PlayCircle,
   Eye,
   CheckCheck,
+  Calendar,
+  ArrowRight,
+  CheckSquare,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useSocket } from '../context/SocketContext.js';
 import { DeveloperDashboardMetrics, Task, TaskStatus } from '../types/index.js';
 import { ActivityFeed } from '../components/ActivityFeed.js';
-
+import { TaskStatusDonutChart } from '../components/TaskStatusDonutChart.js';
 
 export const DeveloperDashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { latestTaskUpdate } = useSocket();
   const [metrics, setMetrics] = useState<DeveloperDashboardMetrics | null>(null);
   const [assignedTasks, setAssignedTasks] = useState<Task[]>([]);
@@ -84,6 +89,26 @@ export const DeveloperDashboardPage: React.FC = () => {
 
   const stats = metrics?.taskStats;
   const overdueCount = stats?.overdue ?? 0;
+  const totalTasks = stats?.total ?? assignedTasks.length;
+
+  const devStatusCounts = {
+    TODO: stats?.todo ?? 0,
+    IN_PROGRESS: stats?.inProgress ?? 0,
+    IN_REVIEW: stats?.inReview ?? 0,
+    DONE: stats?.done ?? 0,
+  };
+
+  const devPriorityCounts = {
+    LOW: assignedTasks.filter((t) => t.priority === 'LOW').length,
+    MEDIUM: assignedTasks.filter((t) => t.priority === 'MEDIUM').length,
+    HIGH: assignedTasks.filter((t) => t.priority === 'HIGH').length,
+    CRITICAL: assignedTasks.filter((t) => t.priority === 'CRITICAL').length,
+  };
+
+  const upcomingDeadlines = assignedTasks
+    .filter((t) => t.status !== 'DONE')
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 5);
 
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
@@ -113,57 +138,149 @@ export const DeveloperDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Task Summary Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* Card 1: Total Tasks */}
-        <div className="dashboard-card p-4">
-          <span className="text-xs font-medium text-slate-500">Total Tasks</span>
-          <div className="text-2xl font-bold text-slate-900 mt-1.5">{stats?.total ?? 0}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Assigned to you</div>
+      {/* 4 Metric KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Assigned */}
+        <div className="dashboard-card p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">Assigned Tasks</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+              <CheckSquare className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 mt-2">{totalTasks}</div>
+          <div className="text-xs text-slate-500 mt-1.5">Assigned to your queue</div>
         </div>
 
-        {/* Card 2: To Do */}
-        <div className="dashboard-card p-4">
-          <span className="text-xs font-medium text-slate-500">To Do</span>
-          <div className="text-2xl font-bold text-slate-700 mt-1.5">{stats?.todo ?? 0}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Ready to start</div>
+        {/* Card 2: In Progress */}
+        <div className="dashboard-card p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">In Progress</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <PlayCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 mt-2">{stats?.inProgress ?? 0}</div>
+          <div className="text-xs text-slate-500 mt-1.5">Currently being developed</div>
         </div>
 
-        {/* Card 3: In Progress */}
-        <div className="dashboard-card p-4">
-          <span className="text-xs font-medium text-slate-500">In Progress</span>
-          <div className="text-2xl font-bold text-blue-600 mt-1.5">{stats?.inProgress ?? 0}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Active development</div>
+        {/* Card 3: Completed */}
+        <div className="dashboard-card p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">Completed</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 mt-2">{stats?.done ?? 0}</div>
+          <div className="text-xs text-slate-500 mt-1.5">
+            {totalTasks > 0 ? Math.round(((stats?.done ?? 0) / totalTasks) * 100) : 0}% completion rate
+          </div>
         </div>
 
-        {/* Card 4: In Review */}
-        <div className="dashboard-card p-4">
-          <span className="text-xs font-medium text-slate-500">In Review</span>
-          <div className="text-2xl font-bold text-amber-600 mt-1.5">{stats?.inReview ?? 0}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Pending PM review</div>
-        </div>
-
-        {/* Card 5: Done */}
-        <div className="dashboard-card p-4">
-          <span className="text-xs font-medium text-slate-500">Completed</span>
-          <div className="text-2xl font-bold text-emerald-600 mt-1.5">{stats?.done ?? 0}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Delivered</div>
-        </div>
-
-        {/* Card 6: Overdue */}
+        {/* Card 4: Overdue */}
         <div
-          className={`dashboard-card p-4 ${
+          className={`dashboard-card p-5 ${
             overdueCount > 0 ? 'border-rose-200/80 bg-rose-50/20' : ''
           }`}
         >
-          <span className={`text-xs font-medium ${overdueCount > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
-            Overdue
-          </span>
-          <div className={`text-2xl font-bold mt-1.5 ${overdueCount > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-medium ${overdueCount > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+              Overdue Tasks
+            </span>
+            <div
+              className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                overdueCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {overdueCount > 0 ? <AlertTriangle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+            </div>
+          </div>
+          <div className={`text-2xl font-bold mt-2 ${overdueCount > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
             {overdueCount}
           </div>
-          <div className={`text-[11px] mt-1 ${overdueCount > 0 ? 'text-rose-600 font-medium' : 'text-slate-400'}`}>
-            {overdueCount > 0 ? 'Requires attention' : 'On track'}
+          <div className={`text-xs mt-1.5 ${overdueCount > 0 ? 'text-rose-600 font-medium' : 'text-slate-500'}`}>
+            {overdueCount > 0 ? 'Requires attention' : 'All tasks on schedule'}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 2: Donut Chart & Upcoming Deadlines */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Donut Chart */}
+        <TaskStatusDonutChart
+          title="Tasks by Status (Assigned to Me)"
+          subtitle="Status distribution of your assigned tasks"
+          totalTasks={totalTasks}
+          statusCounts={devStatusCounts}
+          priorityCounts={devPriorityCounts}
+          allowTogglePriority={true}
+          viewAllLink="/tasks"
+        />
+
+        {/* Right: Upcoming Deadlines */}
+        <div className="dashboard-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Upcoming Due Dates</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Tasks needing your attention soon</p>
+              </div>
+              <button
+                onClick={() => navigate('/tasks')}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
+              >
+                <span>View all</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {upcomingDeadlines.length === 0 ? (
+              <div className="py-10 text-center text-xs text-slate-400">
+                No pending tasks with upcoming due dates.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-[260px] overflow-y-auto pr-1">
+                {upcomingDeadlines.map((task) => {
+                  const priorityClass =
+                    task.priority === 'CRITICAL'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : task.priority === 'HIGH'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : task.priority === 'MEDIUM'
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-slate-100 text-slate-700 border-slate-200';
+
+                  return (
+                    <div
+                      key={task.id}
+                      className="py-3 flex items-start justify-between gap-3 text-xs first:pt-0 last:pb-0"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="font-semibold text-slate-900 leading-snug truncate">
+                          {task.title}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                          <span>{task.project?.name || 'Project'}</span>
+                          <span>•</span>
+                          <span className="capitalize">{task.status.replace('_', ' ').toLowerCase()}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                        <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <span>{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${priorityClass}`}>
+                          {task.priority.charAt(0) + task.priority.slice(1).toLowerCase()}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

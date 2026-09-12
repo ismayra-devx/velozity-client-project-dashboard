@@ -18,6 +18,7 @@ import { useSocket } from '../context/SocketContext.js';
 import { PMDashboardMetrics, Task, ActivityItem } from '../types/index.js';
 import { CreateProjectModal } from '../components/CreateProjectModal.js';
 import { CreateTaskModal } from '../components/CreateTaskModal.js';
+import { TaskStatusDonutChart } from '../components/TaskStatusDonutChart.js';
 
 function formatRelativeTime(dateString: string): string {
   const diffMs = Date.now() - new Date(dateString).getTime();
@@ -264,116 +265,16 @@ export const PMDashboardPage: React.FC = () => {
 
       {/* Row 2: Tasks by Priority & Upcoming Due Dates */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Tasks by Priority */}
-        <div className="dashboard-card p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Tasks by Priority</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Priority distribution across your projects</p>
-              </div>
-              <button
-                onClick={() => navigate('/tasks')}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
-              >
-                <span>View all</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {totalTasks === 0 ? (
-              <div className="py-10 text-center text-xs text-slate-400">
-                No tasks found for your projects.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Low Priority */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-600">Low</span>
-                    <span className="font-semibold text-slate-900">
-                      {tasksByPriority.LOW || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({totalTasks > 0 ? Math.round(((tasksByPriority.LOW || 0) / totalTasks) * 100) : 0}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div
-                      style={{
-                        width: `${totalTasks > 0 ? ((tasksByPriority.LOW || 0) / totalTasks) * 100 : 0}%`,
-                      }}
-                      className="h-full bg-slate-400 rounded-full transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Medium Priority */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-600">Medium</span>
-                    <span className="font-semibold text-slate-900">
-                      {tasksByPriority.MEDIUM || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({totalTasks > 0 ? Math.round(((tasksByPriority.MEDIUM || 0) / totalTasks) * 100) : 0}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div
-                      style={{
-                        width: `${totalTasks > 0 ? ((tasksByPriority.MEDIUM || 0) / totalTasks) * 100 : 0}%`,
-                      }}
-                      className="h-full bg-blue-500 rounded-full transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* High Priority */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-600">High</span>
-                    <span className="font-semibold text-slate-900">
-                      {tasksByPriority.HIGH || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({totalTasks > 0 ? Math.round(((tasksByPriority.HIGH || 0) / totalTasks) * 100) : 0}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div
-                      style={{
-                        width: `${totalTasks > 0 ? ((tasksByPriority.HIGH || 0) / totalTasks) * 100 : 0}%`,
-                      }}
-                      className="h-full bg-amber-500 rounded-full transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Critical Priority */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-600">Critical</span>
-                    <span className="font-semibold text-slate-900">
-                      {tasksByPriority.CRITICAL || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({totalTasks > 0 ? Math.round(((tasksByPriority.CRITICAL || 0) / totalTasks) * 100) : 0}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div
-                      style={{
-                        width: `${totalTasks > 0 ? ((tasksByPriority.CRITICAL || 0) / totalTasks) * 100 : 0}%`,
-                      }}
-                      className="h-full bg-rose-500 rounded-full transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Left: Tasks by Status Donut Pie Chart matching user reference mockup */}
+        <TaskStatusDonutChart
+          title="Tasks by Status (My Projects)"
+          subtitle="Status distribution across your projects"
+          totalTasks={totalTasks}
+          statusCounts={tasksByStatus}
+          priorityCounts={tasksByPriority}
+          allowTogglePriority={true}
+          viewAllLink="/tasks"
+        />
 
         {/* Right: Upcoming Due Dates */}
         <div className="dashboard-card p-6 flex flex-col justify-between">

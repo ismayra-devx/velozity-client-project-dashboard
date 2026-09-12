@@ -17,6 +17,7 @@ import { useSocket } from '../context/SocketContext.js';
 import { AdminDashboardMetrics, Project, ActivityItem } from '../types/index.js';
 import { CreateProjectModal } from '../components/CreateProjectModal.js';
 import { CreateTaskModal } from '../components/CreateTaskModal.js';
+import { TaskStatusDonutChart } from '../components/TaskStatusDonutChart.js';
 
 function formatRelativeTime(dateString: string): string {
   const diffMs = Date.now() - new Date(dateString).getTime();
@@ -106,18 +107,6 @@ export const AdminDashboardPage: React.FC = () => {
   const overdueCount = metrics?.overdueTaskCount ?? 0;
   const onlineCount = activeUserCount > 0 ? activeUserCount : metrics?.activeUsersOnline || 1;
 
-  // Donut SVG circumference calculation
-  const radius = 62;
-  const circumference = 2 * Math.PI * radius;
-  const todoPct = totalTasks > 0 ? (tasksByStatus.TODO || 0) / totalTasks : 0;
-  const ipPct = totalTasks > 0 ? (tasksByStatus.IN_PROGRESS || 0) / totalTasks : 0;
-  const irPct = totalTasks > 0 ? (tasksByStatus.IN_REVIEW || 0) / totalTasks : 0;
-  const donePct = totalTasks > 0 ? (tasksByStatus.DONE || 0) / totalTasks : 0;
-
-  const todoDash = todoPct * circumference;
-  const ipDash = ipPct * circumference;
-  const irDash = irPct * circumference;
-  const doneDash = donePct * circumference;
 
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
@@ -232,151 +221,16 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* Middle Row: Tasks by Status & Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Tasks by Status */}
-        <div className="dashboard-card p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Tasks by Status</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Distribution across all projects</p>
-              </div>
-              <button
-                onClick={() => navigate('/tasks')}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
-              >
-                <span>View all</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {totalTasks === 0 ? (
-              <div className="py-12 text-center text-xs text-slate-400">
-                No tasks found. Create a task to track workflow progress.
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row items-center justify-around gap-8 py-2">
-                {/* SVG Donut */}
-                <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r={radius}
-                      stroke="#f1f5f9"
-                      strokeWidth="14"
-                      fill="transparent"
-                    />
-                    {/* Done */}
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r={radius}
-                      stroke="#16a34a"
-                      strokeWidth="14"
-                      strokeDasharray={`${doneDash} ${circumference}`}
-                      strokeDashoffset={0}
-                      fill="transparent"
-                    />
-                    {/* In Review */}
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r={radius}
-                      stroke="#d97706"
-                      strokeWidth="14"
-                      strokeDasharray={`${irDash} ${circumference}`}
-                      strokeDashoffset={-doneDash}
-                      fill="transparent"
-                    />
-                    {/* In Progress */}
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r={radius}
-                      stroke="#2563eb"
-                      strokeWidth="14"
-                      strokeDasharray={`${ipDash} ${circumference}`}
-                      strokeDashoffset={-(doneDash + irDash)}
-                      fill="transparent"
-                    />
-                    {/* To Do */}
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r={radius}
-                      stroke="#94a3b8"
-                      strokeWidth="14"
-                      strokeDasharray={`${todoDash} ${circumference}`}
-                      strokeDashoffset={-(doneDash + irDash + ipDash)}
-                      fill="transparent"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-2xl font-bold text-slate-900 leading-tight">
-                      {totalTasks}
-                    </span>
-                    <span className="text-[11px] font-medium text-slate-400">Total</span>
-                  </div>
-                </div>
-
-                {/* Status Legend Breakdown */}
-                <div className="space-y-3 w-full max-w-[220px]">
-                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#94a3b8]" />
-                      <span className="text-slate-600 font-medium">To Do</span>
-                    </div>
-                    <div className="font-semibold text-slate-900">
-                      {tasksByStatus.TODO || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({Math.round(todoPct * 100)}%)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#2563eb]" />
-                      <span className="text-slate-600 font-medium">In Progress</span>
-                    </div>
-                    <div className="font-semibold text-slate-900">
-                      {tasksByStatus.IN_PROGRESS || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({Math.round(ipPct * 100)}%)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#d97706]" />
-                      <span className="text-slate-600 font-medium">In Review</span>
-                    </div>
-                    <div className="font-semibold text-slate-900">
-                      {tasksByStatus.IN_REVIEW || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({Math.round(irPct * 100)}%)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]" />
-                      <span className="text-slate-600 font-medium">Done</span>
-                    </div>
-                    <div className="font-semibold text-slate-900">
-                      {tasksByStatus.DONE || 0}{' '}
-                      <span className="text-slate-400 font-normal">
-                        ({Math.round(donePct * 100)}%)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Left: Tasks by Status Donut Pie Chart matching user reference mockup */}
+        <TaskStatusDonutChart
+          title="Tasks by Status"
+          subtitle="Distribution across all agency projects"
+          totalTasks={totalTasks}
+          statusCounts={tasksByStatus}
+          priorityCounts={metrics?.tasksByPriority}
+          allowTogglePriority={true}
+          viewAllLink="/tasks"
+        />
 
         {/* Right: Notifications */}
         <div className="dashboard-card p-6 flex flex-col justify-between">
