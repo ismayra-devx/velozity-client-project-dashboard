@@ -31,6 +31,9 @@ export interface ActivityFeedItem {
   };
 }
 
+import { prisma } from './prisma.js';
+import { getActivities } from '../services/activityService.js';
+
 export function initSocketServer(httpServer: HttpServer): SocketIOServer {
   io = new SocketIOServer(httpServer, {
     cors: {
@@ -56,7 +59,7 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
     }
   });
 
-  io.on('connection', (socket: Socket) => {
+  io.on('connection', async (socket: Socket) => {
     const user: AuthUser = socket.data.user;
 
     // Register active user connection
@@ -66,20 +69,66 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
       activeUsers.get(user.id)!.socketIds.add(socket.id);
     }
 
-    // Join personal user room for direct notifications
+    // 1. Personal user room for direct notifications and developer assigned-task activity
     socket.join(`user:${user.id}`);
 
-    // Admins automatically join the global feed room
+    // 2. Admins automatically join the global feed room (all projects)
     if (user.role === 'ADMIN') {
       socket.join('room:global_feed');
+    }
+
+    // 3. Project Managers automatically join project rooms for their owned projects only
+    if (user.role === 'PROJECT_MANAGER') {
+      try {
+        const pmProjects = await prisma.project.findMany({
+          where: { createdById: user.id },
+          select: { id: true },
+        });
+        pmProjects.forEach((p) => {
+          socket.join(`room:project_${p.id}`);
+        });
+      } catch (err) {
+        console.error('Failed joining PM project rooms:', err);
+      }
     }
 
     // Broadcast presence update (active user count & active users list)
     broadcastPresence();
 
-    // Client can subscribe to specific project updates
-    socket.on('project:join', (projectId: string) => {
-      socket.join(`room:project_${projectId}`);
+    // 4. Missed event catchup directly on connection:
+    // Query PostgreSQL for the last 20 role-filtered activity records
+    try {
+      const missedActivities = await getActivities(user, 20);
+      socket.emit('activity:catchup', missedActivities);
+    } catch (err) {
+      console.error('Failed to query missed activities for catchup:', err);
+    }
+
+    // Secure client subscription to specific project updates with RBAC enforcement
+    socket.on('project:join', async (projectId: string) => {
+      if (!projectId) return;
+
+      if (user.role === 'ADMIN') {
+        socket.join(`room:project_${projectId}`);
+        return;
+      }
+
+      if (user.role === 'PROJECT_MANAGER') {
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { createdById: true },
+        });
+        // PM can only join rooms for projects they created
+        if (project && project.createdById === user.id) {
+          socket.join(`room:project_${projectId}`);
+        } else {
+          socket.emit('error', { message: 'Forbidden: You do not have access to this project room' });
+        }
+        return;
+      }
+
+      // Developers only receive activity for their assigned tasks via user room
+      socket.emit('error', { message: 'Forbidden: Developers cannot join project-wide broadcast rooms' });
     });
 
     socket.on('project:leave', (projectId: string) => {
@@ -99,6 +148,19 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
   });
 
   return io;
+}
+
+export function joinUserSocketsToRoom(userId: string, room: string) {
+  if (!io) return;
+  const userEntry = activeUsers.get(userId);
+  if (userEntry) {
+    userEntry.socketIds.forEach((socketId) => {
+      const socket = io!.sockets.sockets.get(socketId);
+      if (socket) {
+        socket.join(room);
+      }
+    });
+  }
 }
 
 export function getIO(): SocketIOServer {

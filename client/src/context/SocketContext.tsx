@@ -104,6 +104,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
 
+    // Missed event catchup listener (delivered over WebSocket directly from DB on connect/reconnect)
+    socketInstance.on('activity:catchup', (catchupActivities: ActivityItem[]) => {
+      setActivities((prev) => {
+        const map = new Map<string, ActivityItem>();
+        [...(catchupActivities || []), ...prev].forEach((item) => {
+          if (!map.has(item.id)) {
+            map.set(item.id, item);
+          }
+        });
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+    });
+
     // Real-time task update listener
     socketInstance.on('task:updated', (task: Task) => {
       setLatestTaskUpdate(task);

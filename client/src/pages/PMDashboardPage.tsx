@@ -100,6 +100,9 @@ export const PMDashboardPage: React.FC = () => {
       setAllTasks((prev) =>
         prev.map((t) => (t.id === latestTaskUpdate.id ? latestTaskUpdate : t))
       );
+      apiRequest<PMDashboardMetrics>('/dashboard')
+        .then(setMetrics)
+        .catch(() => {});
     }
   }, [latestTaskUpdate]);
 

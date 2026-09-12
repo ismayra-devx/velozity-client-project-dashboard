@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { joinUserSocketsToRoom } from '../lib/socket.js';
 import { AppError } from '../middlewares/errorMiddleware.js';
 import { AuthUser } from '../types/index.js';
 import { CreateProjectInput, UpdateProjectInput } from '../validators/projectValidator.js';
@@ -105,7 +106,7 @@ export async function createProject(input: CreateProjectInput, user: AuthUser) {
     throw new AppError('Client not found', 404);
   }
 
-  return prisma.project.create({
+  const newProject = await prisma.project.create({
     data: {
       name: input.name,
       description: input.description,
@@ -120,6 +121,11 @@ export async function createProject(input: CreateProjectInput, user: AuthUser) {
       },
     },
   });
+
+  // Automatically subscribe creating PM's active sockets to the new project room
+  joinUserSocketsToRoom(user.id, `room:project_${newProject.id}`);
+
+  return newProject;
 }
 
 export async function updateProject(projectId: string, input: UpdateProjectInput, user: AuthUser) {

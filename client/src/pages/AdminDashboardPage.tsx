@@ -36,6 +36,7 @@ export const AdminDashboardPage: React.FC = () => {
   const {
     activeUserCount,
     activities: socketActivities,
+    latestTaskUpdate,
     notifications,
     unreadNotificationCount,
     markNotificationRead,
@@ -70,6 +71,15 @@ export const AdminDashboardPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Synchronize live task updates to refresh dashboard metrics & charts in real time
+  useEffect(() => {
+    if (latestTaskUpdate) {
+      apiRequest<AdminDashboardMetrics>('/dashboard')
+        .then(setMetrics)
+        .catch(() => {});
+    }
+  }, [latestTaskUpdate]);
 
   if (loading) {
     return (

@@ -178,6 +178,9 @@ export async function createTask(input: CreateTaskInput, user: AuthUser) {
       task: {
         select: { id: true, taskNumber: true, title: true, assignedToId: true },
       },
+      project: {
+        select: { id: true, name: true },
+      },
     },
   });
 
@@ -271,6 +274,9 @@ export async function updateTaskStatus(taskId: string, newStatus: TaskStatus, us
       },
       task: {
         select: { id: true, taskNumber: true, title: true, assignedToId: true },
+      },
+      project: {
+        select: { id: true, name: true },
       },
     },
   });
