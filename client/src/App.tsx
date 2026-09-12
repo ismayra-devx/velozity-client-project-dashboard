@@ -1,7 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.js';
-import { Navbar } from './components/Navbar.js';
+import { Sidebar } from './components/Sidebar.js';
+import { TopHeader } from './components/TopHeader.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { AdminDashboardPage } from './pages/AdminDashboardPage.js';
 import { PMDashboardPage } from './pages/PMDashboardPage.js';
@@ -13,11 +14,11 @@ export const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+      <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] text-slate-900">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-9 w-9 border-b-2 border-cyan-400" />
-          <span className="text-xs font-semibold text-slate-400 tracking-wider">
-            Loading Velozity Portal...
+          <div className="animate-spin rounded-full h-9 w-9 border-b-2 border-blue-600" />
+          <span className="text-xs font-semibold text-slate-500 tracking-wider">
+            Loading Velozity Agency Portal...
           </span>
         </div>
       </div>
@@ -37,23 +38,26 @@ export const App: React.FC = () => {
       case 'DEVELOPER':
         return <DeveloperDashboardPage />;
       default:
-        return <Navigate to="/login" />;
+        return <Navigate to="/" replace />;
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Routes>
-          <Route path="/" element={renderDashboardByRole()} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
-        Velozity Global Solutions Technical Assessment • Real-Time Client Dashboard with RBAC
-      </footer>
+    <div className="min-h-screen flex bg-[#f8fafc] text-slate-900 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* Left Sidebar */}
+      <Sidebar />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopHeader />
+        <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8 overflow-y-auto">
+          <Routes>
+            <Route path="/" element={renderDashboardByRole()} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 };
