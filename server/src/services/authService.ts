@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { config } from '../config/index.js';
 import { AppError } from '../middlewares/errorMiddleware.js';
 import { AuthUser } from '../types/index.js';
-import { LoginInput } from '../validators/authValidator.js';
+import { LoginInput, isPersonalEmail } from '../validators/authValidator.js';
 
 export function signAccessToken(user: AuthUser): string {
   return jwt.sign(
@@ -23,6 +23,13 @@ export function signRefreshToken(user: AuthUser): string {
 }
 
 export async function loginUser(input: LoginInput) {
+  if (isPersonalEmail(input.email)) {
+    throw new AppError(
+      'Personal email addresses (e.g. @gmail.com, @yahoo.com) are not permitted. Please sign in with your corporate agency work email address.',
+      400
+    );
+  }
+
   const user = await prisma.user.findUnique({
     where: { email: input.email.toLowerCase() },
   });

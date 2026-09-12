@@ -153,7 +153,28 @@ async function runChecklistTests() {
     body: { email: 'not-an-email' },
   });
   console.log(`Invalid body rejection: Status ${badReq.status} (Error: ${badReq.data.message || 'Bad Request'}) ${badReq.status === 400 ? 'CLEAN REJECTION ✅' : 'FAILED ❌'}`);
-  console.log(`Stack trace exposed? ${badReq.data.stack ? 'YES (BAD) ❌' : 'NO (SECURE) ✅'}\n`);
+
+  // Personal email rejection check
+  const personalEmailReq = await request('/auth/login', {
+    method: 'POST',
+    body: { email: 'intern@gmail.com', password: 'Password123!' },
+  });
+  console.log(`Personal email (@gmail) rejection: Status ${personalEmailReq.status} (Error: ${personalEmailReq.data.message}) ${personalEmailReq.status === 400 ? 'BLOCKED ✅' : 'FAILED ❌'}`);
+
+  // Wrong password rejection check
+  const wrongPassReq = await request('/auth/login', {
+    method: 'POST',
+    body: { email: 'admin@velozity.com', password: 'WrongPassword999!' },
+  });
+  console.log(`Wrong password rejection: Status ${wrongPassReq.status} (Error: ${wrongPassReq.data.message}) ${wrongPassReq.status === 401 ? 'CLEAN REJECTION ✅' : 'FAILED ❌'}`);
+
+  // Dev1 trying to fetch Dev2's task details directly (GET /tasks/:id)
+  const dev1GetDev2Task = await request(`/tasks/${dev2TargetTaskId}`, {
+    headers: { Authorization: `Bearer ${dev1Auth.token}` },
+  });
+  console.log(`Dev1 -> GET Dev2 task directly (/tasks/${dev2TargetTaskId}): Status ${dev1GetDev2Task.status} (${dev1GetDev2Task.data.message || 'Restricted'}) ${dev1GetDev2Task.status === 403 || dev1GetDev2Task.status === 404 ? 'BLOCKED ✅' : 'FAILED ❌'}`);
+
+  console.log(`Stack trace exposed? ${badReq.data.stack || personalEmailReq.data.stack || wrongPassReq.data.stack ? 'YES (BAD) ❌' : 'NO (SECURE) ✅'}\n`);
 
   console.log('================================================================');
   console.log('              ALL PRE-FLIGHT CHECKS PASSED ✅');

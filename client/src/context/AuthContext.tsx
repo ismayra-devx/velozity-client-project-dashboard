@@ -44,18 +44,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password = 'Password123!') => {
-    setIsLoading(true);
-    try {
-      const data = await apiRequest<{ user: User; accessToken: string }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      setUser(data.user);
-      setToken(data.accessToken);
-      setAccessToken(data.accessToken);
-    } finally {
-      setIsLoading(false);
-    }
+    const data = await apiRequest<{ user: User; accessToken: string }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    setUser(data.user);
+    setToken(data.accessToken);
+    setAccessToken(data.accessToken);
   };
 
   const logout = async () => {
