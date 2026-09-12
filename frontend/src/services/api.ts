@@ -49,7 +49,8 @@ export async function apiRequest<T = any>(
     if (!isRefreshing) {
       isRefreshing = true;
       try {
-        const refreshRes = await fetch('/api/auth/refresh', {
+        const refreshUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/auth/refresh` : '/api/auth/refresh';
+        const refreshRes = await fetch(refreshUrl, {
           method: 'POST',
           credentials: 'include',
         });

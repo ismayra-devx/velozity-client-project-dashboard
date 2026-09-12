@@ -22,7 +22,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     async function restoreSession() {
       try {
-        const res = await fetch('/api/auth/refresh', {
+        const refreshUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/auth/refresh` : '/api/auth/refresh';
+        const res = await fetch(refreshUrl, {
           method: 'POST',
           credentials: 'include',
         });

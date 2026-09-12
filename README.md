@@ -124,15 +124,16 @@ The seed script populates:
 
 ### 4. Run Development Servers
 
-**Backend (Express API + WebSocket Server)**:
+**Terminal 1 (Backend API + WebSocket Server)**:
 ```bash
-cd backend
+# If already in backend/ from step 3 (or from repo root: cd backend):
 npm run dev
 # Running at http://localhost:5000
 ```
 
-**Frontend (Vite + React)**:
+**Terminal 2 (Frontend React SPA)**:
 ```bash
+# In a second terminal from the repository root:
 cd frontend
 npm install
 npm run dev
@@ -154,7 +155,7 @@ npm run dev
 ### 2. Token Storage & Authentication Architecture
 - **Access Token**: Short-lived (15 minutes), kept strictly in JavaScript memory within the client `AuthContext`. It is never stored in `localStorage` or `sessionStorage` to eliminate cross-site scripting (XSS) token theft vulnerabilities.
 - **Refresh Token**: Long-lived (7 days), delivered via a strict `HttpOnly`, `SameSite=Lax`, `Path=/api/auth` cookie. JavaScript has zero read access to this cookie, mitigating token interception.
-- **Token Rotation & Revocation**: Every refresh request revokes the existing refresh token record in PostgreSQL and issues a fresh one. If an invalid or expired token is presented, all sessions can be invalidated immediately.
+- **Token Rotation & Revocation**: Every refresh request revokes the existing refresh token record in PostgreSQL and issues a fresh one, preventing replay attacks and invalidating expired or unrecognized tokens.
 
 ### 3. WebSocket Implementation & Justification
 - **Technology**: Socket.IO over WebSocket transport (`transports: ['websocket']`).

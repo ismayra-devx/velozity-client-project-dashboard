@@ -115,7 +115,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   const activeProjectsCount = projects.filter((p) => p.status === 'ACTIVE').length;
   const overdueCount = metrics?.overdueTaskCount ?? 0;
-  const onlineCount = activeUserCount > 0 ? activeUserCount : metrics?.activeUsersOnline || 1;
+  const onlineCount = activeUserCount ?? metrics?.activeUsersOnline ?? 0;
 
 
   const formattedDate = new Intl.DateTimeFormat('en-US', {

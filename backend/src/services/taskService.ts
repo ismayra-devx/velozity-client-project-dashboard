@@ -337,6 +337,14 @@ export async function updateTask(taskId: string, input: UpdateTaskInput, user: A
 
   let newlyAssigned = false;
   if (input.assignedToId && input.assignedToId !== task.assignedToId) {
+    const developer = await prisma.user.findUnique({
+      where: { id: input.assignedToId },
+    });
+
+    if (!developer || developer.role !== 'DEVELOPER') {
+      throw new AppError('Assigned user must be an existing Developer', 400);
+    }
+
     data.assignedTo = { connect: { id: input.assignedToId } };
     newlyAssigned = true;
   }
