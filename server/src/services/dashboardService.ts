@@ -193,10 +193,21 @@ export async function getDashboardData(user: AuthUser) {
   }
 
   // DEVELOPER DASHBOARD
+  const now = new Date();
+  const endOfWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
   const assignedTasks = await prisma.task.findMany({
     where: { assignedToId: user.id },
     include: {
-      project: { select: { id: true, name: true } },
+      project: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          createdBy: { select: { id: true, name: true } },
+          tasks: { select: { id: true, status: true } },
+        },
+      },
     },
     // Required: sorted by priority then due date
     orderBy: [
@@ -205,6 +216,42 @@ export async function getDashboardData(user: AuthUser) {
     ],
   });
 
+  const dueThisWeekTasks = assignedTasks.filter((t) => {
+    const d = new Date(t.dueDate);
+    return d >= now && d <= endOfWeek && t.status !== 'DONE';
+  });
+
+  const highPriorityDueThisWeek = dueThisWeekTasks.filter(
+    (t) => t.priority === 'HIGH' || t.priority === 'CRITICAL'
+  ).length;
+
+  // Distinct participating projects for this developer
+  const projectMap = new Map<string, {
+    id: string;
+    name: string;
+    status: any;
+    pmName: string;
+    totalTasks: number;
+    doneTasks: number;
+  }>();
+
+  assignedTasks.forEach((t) => {
+    if (t.project && !projectMap.has(t.project.id)) {
+      const totalTasks = t.project.tasks?.length || 0;
+      const doneTasks = t.project.tasks?.filter((pt: any) => pt.status === 'DONE').length || 0;
+      projectMap.set(t.project.id, {
+        id: t.project.id,
+        name: t.project.name,
+        status: t.project.status,
+        pmName: t.project.createdBy?.name || 'Project Manager',
+        totalTasks,
+        doneTasks,
+      });
+    }
+  });
+
+  const participatingProjects = Array.from(projectMap.values());
+
   const taskStats = {
     total: assignedTasks.length,
     todo: assignedTasks.filter((t) => t.status === 'TODO').length,
@@ -212,11 +259,14 @@ export async function getDashboardData(user: AuthUser) {
     inReview: assignedTasks.filter((t) => t.status === 'IN_REVIEW').length,
     done: assignedTasks.filter((t) => t.status === 'DONE').length,
     overdue: assignedTasks.filter((t) => t.isOverdue || (t.status !== 'DONE' && new Date(t.dueDate) < new Date())).length,
+    dueThisWeek: dueThisWeekTasks.length,
+    highPriorityDueThisWeek,
   };
 
   return {
     role: 'DEVELOPER',
     taskStats,
     assignedTasks,
+    participatingProjects,
   };
 }

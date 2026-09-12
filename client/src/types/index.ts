@@ -135,8 +135,18 @@ export interface DeveloperDashboardMetrics {
     inReview: number;
     done: number;
     overdue: number;
+    dueThisWeek?: number;
+    highPriorityDueThisWeek?: number;
   };
   assignedTasks: Task[];
+  participatingProjects?: {
+    id: string;
+    name: string;
+    status: ProjectStatus;
+    pmName: string;
+    totalTasks: number;
+    doneTasks: number;
+  }[];
 }
 
 export type DashboardMetrics = AdminDashboardMetrics | PMDashboardMetrics | DeveloperDashboardMetrics;

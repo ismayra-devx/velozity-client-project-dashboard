@@ -12,6 +12,7 @@ import {
   Layers,
   ChevronDown,
   LogOut,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { useSocket } from '../context/SocketContext.js';
@@ -84,20 +85,6 @@ export const Sidebar: React.FC = () => {
             </div>
             <nav className="space-y-1">
               <Link
-                to="/projects"
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  location.pathname === '/projects'
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <FolderKanban className="w-4 h-4 text-slate-400" />
-                  <span>Projects</span>
-                </div>
-              </Link>
-
-              <Link
                 to="/tasks"
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   location.pathname === '/tasks'
@@ -108,6 +95,20 @@ export const Sidebar: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <CheckSquare className="w-4 h-4 text-slate-400" />
                   <span>Tasks</span>
+                </div>
+              </Link>
+
+              <Link
+                to="/projects"
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  location.pathname === '/projects'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <FolderKanban className="w-4 h-4 text-slate-400" />
+                  <span>{user.role === 'DEVELOPER' ? 'My Projects' : 'Projects'}</span>
                 </div>
               </Link>
 
@@ -125,17 +126,19 @@ export const Sidebar: React.FC = () => {
                 </Link>
               )}
 
-              <Link
-                to="/team"
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  location.pathname === '/team'
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <Users className="w-4 h-4 text-slate-400" />
-                <span>Team</span>
-              </Link>
+              {user.role !== 'DEVELOPER' && (
+                <Link
+                  to="/team"
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    location.pathname === '/team'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <Users className="w-4 h-4 text-slate-400" />
+                  <span>Team</span>
+                </Link>
+              )}
 
               <Link
                 to="/activity"
@@ -191,6 +194,17 @@ export const Sidebar: React.FC = () => {
               </nav>
             </div>
           )}
+        </div>
+
+        {/* Help & Support */}
+        <div className="pt-2 pb-2">
+          <button
+            type="button"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all text-left"
+          >
+            <HelpCircle className="w-4 h-4 text-slate-400" />
+            <span>Help & Support</span>
+          </button>
         </div>
 
         {/* Bottom Profile Bar */}

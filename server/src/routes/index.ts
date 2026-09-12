@@ -6,6 +6,7 @@ import activityRoutes from './activityRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import clientRoutes from './clientRoutes.js';
 import dashboardRoutes from './dashboardRoutes.js';
+import userRoutes from './userRoutes.js';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/activities', activityRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/clients', clientRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/users', userRoutes);
 
 export default router;

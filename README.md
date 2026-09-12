@@ -1,239 +1,165 @@
-# Velozity Global Solutions — Technical Hiring Assessment
+# VELOZITY — Agency Portal
 
-> **Full Stack Developer Role**  
-> **Task:** Build a Real-Time Client Project Dashboard with Role-Based Access & Live Activity Feed  
-
----
-
-## 1. Executive Summary & Assessment Explanation
-
-### Technical Assessment Explanation (150–250 words)
-
-> The most challenging aspect of this project was engineering a multi-tenant, real-time activity feed that guarantees strict role-based data isolation across both WebSocket emissions and reconnect catchup states. To solve this, I designed a room-routing topology in Socket.io partitioned by user (`user:${id}`), project (`room:project_${id}`), and elevated admin global feeds (`room:global_feed`). Handshake authentication cryptographically decodes the JWT access token, mapping socket subscriptions exclusively to owned entities. When a task status transition occurs, the update transaction writes an immutable `TaskActivityLog` row before emitting strictly to authorized rooms—preventing Developers from eavesdropping on unassigned tasks and restricting Project Managers to their created projects. For reconnects, a dedicated catchup query fetches the latest 20 events directly from PostgreSQL applying row-level ownership clauses (`WHERE createdById` or `assignedToId`), eliminating memory cache inconsistencies. If doing this differently at scale, I would decouple the real-time emission layer using Redis Pub/Sub with a multi-node BullMQ worker cluster. This would isolate background overdue evaluations from the Express event loop and enable zero-downtime horizontal scaling across containerized replicas.
+Velozity is a professional multi-tenant agency management platform designed for modern digital agencies. It provides a real-time, role-isolated operational hub for Administrators, Project Managers, and Developers to coordinate projects, manage sprint deliverables, and track activity audit trails with instant WebSocket synchronization.
 
 ---
 
-## 2. Core Architecture & Tech Stack
+## 150–250 Word Architectural Overview
 
-```mermaid
-flowchart TD
-    Client["React 18 + TypeScript Client (Vite + TailwindCSS)"] <--> |REST API (Credentials: Include)| ExpressApp["Node.js Express Server (TypeScript)"]
-    Client <--> |WebSocket (Handshake JWT Auth)| SocketServer["Socket.io Real-Time Engine"]
-    ExpressApp --> |Zod Schemas| Middlewares["Auth & Strict RBAC Middlewares"]
-    Middlewares --> Controllers["Controllers (Clean Architecture)"]
-    Controllers --> Services["Domain Services (Projects, Tasks, Feeds)"]
-    Services --> Prisma["Prisma ORM (ACID Transactions)"]
-    Prisma --> Postgres[("PostgreSQL Database with Targeted Indexes")]
-    NodeCron["node-cron Scheduler (Every 1 min)"] --> |Scan Overdue Tasks| Services
-    Services --> |Broadcast Events| SocketServer
-```
+Velozity is architected around a strict separation of concerns, ensuring security and business rules remain inviolable regardless of the client interface. The backend is built with TypeScript on Node.js and Express, following an enterprise layered structure: decoupled routing, controllers for HTTP transport, domain services encapsulating business logic, Zod-powered schema validation middleware, and Prisma ORM managing a containerized PostgreSQL database. 
 
-### Architectural Decisions & Justifications
+Authentication employs short-lived asymmetric JWT access tokens paired with cryptographically secure, HttpOnly, SameSite refresh cookies stored in the database with rotation on every renewal. Role-Based Access Control (RBAC) is enforced at the API layer across every route and database query: Administrators have global oversight, Project Managers are strictly confined to their own created projects, and Developers can only access and transition tasks explicitly assigned to them. 
 
-1. **WebSocket Library Choice: `Socket.io` over Native WebSockets**
-   - *Rationale:* Socket.io provides production-tested room partitioning (`to(room).emit()`), essential for enforcing role-specific feeds (`room:global_feed`, `room:project_${id}`, `user:${id}`) without manual multiplexing. It includes native connection state recovery, automatic heartbeat disconnect detection, and seamless HTTP long-polling fallback for constrained proxy environments.
-
-2. **Job Queue Choice: `node-cron` over Bull/BullMQ**
-   - *Rationale:* For a single-instance deployment, `node-cron` provides zero external infrastructure overhead (no Redis required), deterministic minute-level cron precision, and runs directly in the Node.js runtime. When scaling horizontally across multiple server instances, the service layer is decoupled so that swapping `node-cron` with a distributed BullMQ/Redis worker cluster requires zero changes to the underlying database models or WebSocket broadcast helpers.
-
-3. **Authentication & Token Storage Approach: Short-Lived JWT + HttpOnly SameSite Cookie**
-   - *Rationale:* Storing refresh tokens in `localStorage` leaves users vulnerable to Cross-Site Scripting (XSS) attacks. In this application, the 7-day refresh token is stored exclusively inside an `HttpOnly`, `SameSite=Lax`, `Path=/api/auth` cookie inaccessible to JavaScript. The 15-minute access token is kept in memory and passed via the `Authorization: Bearer <token>` header. Automatic refresh token rotation is handled seamlessly by an HTTP client interceptor.
-
-4. **Web Framework: Express + TypeScript**
-   - *Rationale:* Express offers transparent middleware composability (`authenticateToken` &rarr; `requireRoles` &rarr; `validateRequest`), predictable request lifecycles, and battle-tested compatibility with `@prisma/client` and `socket.io`.
+Real-time collaboration is powered by Socket.IO over genuine WebSockets with role-aware room partitioning. Task status transitions emit formatted audit log events to both live connected sockets and persistent database tables. If a client disconnects, an offline catch-up endpoint queries PostgreSQL directly upon reconnect, ensuring zero missed events. Scheduled background cron workers evaluate task deadlines independently of user sessions, automatically flagging overdue items and broadcasting system alerts.
 
 ---
 
-## 3. Database Schema & Indexing Decisions
+## Core Technology Stack
 
-### Database Schema (Prisma PostgreSQL)
-
-```mermaid
-erDiagram
-    User ||--o{ Project : "createdProjects"
-    User ||--o{ Task : "assignedTasks"
-    User ||--o{ TaskActivityLog : "activities"
-    User ||--o{ Notification : "notifications"
-    User ||--o{ RefreshToken : "refreshTokens"
-    Client ||--o{ Project : "projects"
-    Project ||--o{ Task : "tasks"
-    Project ||--o{ TaskActivityLog : "activityLogs"
-    Task ||--o{ TaskActivityLog : "activityLogs"
-    Task ||--o{ Notification : "notifications"
-
-    User {
-        string id PK
-        string email UK
-        string passwordHash
-        string name
-        Role role "ADMIN | PROJECT_MANAGER | DEVELOPER"
-        datetime createdAt
-    }
-
-    Client {
-        string id PK
-        string name
-        string company
-        string email UK
-        string phone
-    }
-
-    Project {
-        string id PK
-        string name
-        string description
-        ProjectStatus status
-        string clientId FK
-        string createdById FK
-        datetime createdAt
-    }
-
-    Task {
-        string id PK
-        int taskNumber UK
-        string title
-        string description
-        TaskStatus status "TODO | IN_PROGRESS | IN_REVIEW | DONE"
-        TaskPriority priority "LOW | MEDIUM | HIGH | CRITICAL"
-        datetime dueDate
-        boolean isOverdue
-        string projectId FK
-        string assignedToId FK
-    }
-
-    TaskActivityLog {
-        string id PK
-        string taskId FK
-        string projectId FK
-        string userId FK
-        string action
-        string fromStatus
-        string toStatus
-        string message
-        datetime createdAt
-    }
-
-    Notification {
-        string id PK
-        string userId FK
-        string taskId FK
-        string title
-        string message
-        boolean isRead
-        datetime createdAt
-    }
-```
-
-### Strategic Indexing Rationale
-
-- `Project(createdById)`: Optimizes Project Manager queries (`WHERE createdById = :pmId`). PMs cannot view or modify other PMs' projects; this index guarantees index-scan lookups rather than full table scans.
-- `Task(projectId)`: Accelerates task loading within individual project boards and detail views.
-- `Task(assignedToId)`: Critical for Developer queries (`WHERE assignedToId = :devId`), ensuring instant rendering of the Developer dashboard.
-- `Task(isOverdue, status, dueDate)`: **Composite Index** specifically crafted for the background cron scheduler query:
-  ```sql
-  SELECT * FROM "Task"
-  WHERE "isOverdue" = false
-    AND "status" != 'DONE'
-    AND "dueDate" < NOW();
-  ```
-  This compound index turns what would be an expensive table scan every minute into an index-range scan.
-- `TaskActivityLog(projectId, createdAt DESC)`: Provides sub-millisecond retrieval of the most recent activity feed events for project rooms and PM dashboards.
-- `TaskActivityLog(createdAt DESC)`: Accelerates global feed loading for Admins.
-- `Notification(userId, isRead)`: Optimizes unread notification badge counters and dropdown retrieval.
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite, Lucide Icons, Socket.IO Client.
+- **Backend**: Node.js, Express, TypeScript, Prisma ORM, Socket.IO, Zod, bcrypt, node-cron.
+- **Database**: PostgreSQL 16 (Dockerized).
+- **Security**: JWT (Access Token in memory, Refresh Token in HttpOnly cookie), Helmet, CORS, parameterized queries.
 
 ---
 
-## 4. Role-Based Access Control (RBAC) Specification
+## Pre-Configured Demo Accounts
 
-Role enforcement is executed strictly at the Express API layer using middlewares and Prisma row-level ownership clauses:
+All demo accounts share the password: `Password123!`
 
-| Feature | Admin | Project Manager | Developer |
-|---|---|---|---|
-| **Clients** | View & Create all | View & Create all | No access |
-| **Projects** | View, Create, Edit all | Create; View & Edit **only projects they created** | View **only projects where they have assigned tasks** |
-| **Tasks** | View, Create, Edit all | Create & Edit tasks in **their own projects** | View **only assigned tasks**; update status |
-| **Status Updates** | Any task | Tasks in their own projects | **Only tasks assigned to them** |
-| **Real-time Feed** | Global feed (all projects) | Feed for **their own projects only** | Feed for **their assigned tasks only** |
-| **Active Presence** | Live count + online user list | Connection state only | Connection state only |
+| Role | Name | Email | Permissions & Scope |
+| :--- | :--- | :--- | :--- |
+| **Admin** | Sarah Connor | `admin@velozity.com` | Global agency oversight, all projects, users, clients, full audit log |
+| **PM 1** | Jordan Lee | `pm1@velozity.com` | Manages own projects (*Omnichannel E-Commerce*, *NextGen Telehealth*), assigns tasks, monitors team |
+| **PM 2** | Elena Rostova | `pm2@velozity.com` | Manages own projects (*Cloud Infrastructure Modernization*), strictly isolated from PM 1 |
+| **Dev 1** | Ravi Sharma | `dev1@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
+| **Dev 2** | Priya Patel | `dev2@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
 
 ---
 
-## 5. Local Setup Instructions
+## Quickstart & Local Setup
 
 ### Prerequisites
-- Node.js v18+ (tested on v24)
-- Docker & Docker Compose (or local PostgreSQL instance)
+- [Docker](https://www.docker.com/) & Docker Compose
+- [Node.js](https://nodejs.org/) v18+ and npm
 
-### Option A: Quickstart with Docker Compose (Recommended)
+### 1. Clone & Environment Configuration
+```bash
+git clone <repository-url>
+cd "Assignment intern 1"
+```
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repo-url>
-   cd velozity-dashboard
-   ```
+Configure `server/.env` (pre-configured template in `server/.env.example`):
+```env
+PORT=5000
+NODE_ENV=development
+CLIENT_URL=http://localhost:5173
+DATABASE_URL="postgresql://postgres:postgrespassword@localhost:5432/velozity_db?schema=public"
+JWT_ACCESS_SECRET="velozity_access_token_secret_key_2026_xyz"
+JWT_REFRESH_SECRET="velozity_refresh_token_secret_key_2026_xyz"
+JWT_ACCESS_EXPIRY="15m"
+JWT_REFRESH_EXPIRY="7d"
+```
 
-2. **Start the PostgreSQL database via Docker:**
-   ```bash
-   docker compose up -d postgres
-   ```
+### 2. Start PostgreSQL via Docker
+```bash
+docker-compose up -d
+```
+This spins up a dedicated PostgreSQL 16 instance on port `5432`.
 
-3. **Install dependencies and setup Backend:**
-   ```bash
-   cd server
-   npm install
-   npx prisma db push
-   npm run seed
-   npm run dev
-   ```
-   *The backend runs at `http://localhost:5000`.*
+### 3. Initialize Database & Seed
+```bash
+cd server
+npm install
+npx prisma migrate dev --name init
+npm run seed
+```
+The seed script populates 1 Admin, 2 PMs, 4 Developers, 3 distinct projects, 18 tasks across multiple statuses and priorities, active overdue tasks, and historical activity logs.
 
-4. **Install dependencies and start Frontend:**
-   ```bash
-   cd ../client
-   npm install
-   npm run dev
-   ```
-   *The frontend runs at `http://localhost:5173`.*
+### 4. Run Development Servers
 
----
+**Backend (Express API + WebSocket Server)**:
+```bash
+cd server
+npm run dev
+# Running at http://localhost:5000
+```
 
-### Option B: Using Remote PostgreSQL (Neon, Supabase, Railway)
-
-If running without local Docker:
-1. In `server/.env`, update `DATABASE_URL` with your PostgreSQL connection string:
-   ```env
-   DATABASE_URL="postgresql://username:password@your-host:5432/velozity_db?sslmode=require"
-   ```
-2. Run database migration and seed:
-   ```bash
-   cd server
-   npx prisma db push
-   npm run seed
-   npm run dev
-   ```
-
----
-
-## 6. Seed Accounts & Demo Credentials
-
-Password for all accounts: **`Password123!`**
-
-| Role | Email | Name | Scope / Permissions |
-|---|---|---|---|
-| **Admin** | `admin@velozity.com` | Sarah Connor | Full global access across all projects, clients, users, presence |
-| **Project Manager 1** | `pm1@velozity.com` | Alex Morgan | Owns Project 1 (Telehealth) and Project 2 (Cloud Infra) |
-| **Project Manager 2** | `pm2@velozity.com` | Jordan Lee | Owns Project 3 (Omnichannel E-Commerce) |
-| **Developer 1** | `dev1@velozity.com` | Ravi Sharma | Assigned to Task #1 (Overdue), Task #3, Task #5, Task #11, Task #17 |
-| **Developer 2** | `dev2@velozity.com` | Elena Rostova | Assigned to Task #2 (Overdue), Task #7, Task #9, Task #15, Task #18 |
-| **Developer 3** | `dev3@velozity.com` | Marcus Chen | Assigned to Task #4, Task #8, Task #12, Task #14 |
-| **Developer 4** | `dev4@velozity.com` | Priya Patel | Assigned to Task #6, Task #10, Task #13, Task #16 |
-
-> **Evaluator Tip:** The web application features an instant **1-Click Role Switcher** in the top navigation bar, enabling you to test role boundaries and data isolation across Admin, PM 1, PM 2, and Developers in seconds.
+**Frontend (Vite + React)**:
+```bash
+cd client
+npm install
+npm run dev
+# Running at http://localhost:5173
+```
 
 ---
 
-## 7. Known Limitations & Production Enhancements
+## Architectural Decisions & Design Justifications
 
-1. **Multi-Node WebSocket Scaling:** Currently uses in-memory Socket.io adapter. For horizontal scaling across multiple container instances, `@socket.io/redis-adapter` would be integrated.
-2. **Distributed Job Execution:** The overdue scheduler uses in-process `node-cron`. In clustered environments, distributed locking via BullMQ and Redis would prevent duplicate task evaluations across pods.
-3. **Audit Export:** While all task status mutations are captured in `TaskActivityLog`, a future iteration could include CSV/JSON audit report exports for compliance review.
+### 1. Token Storage & Authentication Architecture
+- **Access Token**: Short-lived (15 minutes), kept strictly in JavaScript memory within the client `AuthContext`. It is never stored in `localStorage` or `sessionStorage` to eliminate cross-site scripting (XSS) token theft vulnerabilities.
+- **Refresh Token**: Long-lived (7 days), delivered via a strict `HttpOnly`, `SameSite=Lax`, `Path=/api/auth` cookie. JavaScript has zero read access to this cookie.
+- **Token Rotation**: Every refresh request revokes the old refresh token record in PostgreSQL and issues a fresh one, preventing token reuse and replay attacks.
+
+### 2. WebSocket Implementation & Justification
+- **Technology**: Socket.IO over standard native WebSockets.
+- **Justification**: Socket.IO provides heartbeat ping/pong failure detection, automatic reconnect backoff, room-based broadcast segmentation, and binary safety while maintaining low-overhead WebSocket transport without falling back to inefficient HTTP long-polling.
+- **Room Segmentation**: Sockets automatically join `project:{projectId}` and `user:{userId}` rooms upon authenticated connection. Project updates are dispatched only to members authorized to view that project, preserving confidentiality.
+
+### 3. Background Job Scheduler & Justification
+- **Technology**: `node-cron` daemon running in the backend service worker.
+- **Justification**: A decoupled cron job runs every minute to query tasks where `dueDate < NOW()` and `status != 'DONE'`. It flags `isOverdue = true` in PostgreSQL, persists a `TaskActivityLog` entry, generates notifications, and broadcasts real-time alerts. This ensures overdue state is produced autonomously without depending on a user opening the application.
+
+### 4. Database Relational Design & Indexing Decisions
+PostgreSQL with Prisma enforces foreign keys and cascade deletions across 6 core entities: `User`, `Client`, `Project`, `Task`, `TaskActivityLog`, `Notification`, and `RefreshToken`.
+
+Key composite indexes were chosen based on query analysis:
+- `Task([projectId])` & `Task([assignedToId])`: Accelerates role-filtered task listings for PMs and Developers.
+- `Task([status])` & `Task([priority])` & `Task([dueDate])`: Eliminates full table scans when filtering by URL query parameters.
+- `Task([isOverdue, status, dueDate])`: Composite index specifically targeting the recurring 60-second cron job query.
+- `TaskActivityLog([projectId, createdAt DESC])`: Powers instantaneous feed retrieval and pagination for project dashboards.
+- `TaskActivityLog([taskId, createdAt DESC])`: Optimizes task audit history dialogs.
+- `Notification([userId, isRead])`: Accelerates unread notification badge count lookups.
+
+---
+
+## Role-Based Access Control (RBAC) Specification
+
+All security is enforced on the server. If the frontend UI is bypassed completely (e.g. via cURL or Postman), the API enforces strict authorization:
+
+| Action / Endpoint | Admin | Project Manager | Developer |
+| :--- | :---: | :---: | :---: |
+| `GET /api/projects` | All agency projects | Only projects created by self | Only participating projects |
+| `POST /api/projects` | Allowed | Allowed | **403 Forbidden** |
+| `PUT /api/projects/:id` | Allowed | Only owned project | **403 Forbidden** |
+| `GET /api/tasks` | All tasks | Own projects' tasks | Only assigned tasks |
+| `POST /api/tasks` | Allowed | Own projects only | **403 Forbidden** |
+| `PATCH /api/tasks/:id/status` | Allowed | Own projects' tasks | Assigned tasks only |
+| `GET /api/users` | Allowed | **403 Forbidden** | **403 Forbidden** |
+| `GET /api/clients` | Allowed | Allowed | **403 Forbidden** |
+
+---
+
+## Real-Time Feed & Missed-Event Recovery
+
+1. **Format**: Every event follows the human-readable standard:
+   `[Actor Name] moved Task #[Number] from [From Status] → [To Status] · [Relative Time]`
+2. **Instant Sync**: When Developer updates status, PM and Admin screens receive the `activity:new` and `task:updated` events over WebSocket with zero page refresh and zero polling.
+3. **Missed Events**: If a client disconnects and reconnects after multiple activities occur, `SocketContext` triggers `GET /api/activities/missed`, recovering recent events directly from PostgreSQL rather than an ephemeral memory buffer.
+
+---
+
+## URL-Shareable Filters
+
+Task Explorer filters are bound bidirectionally to URL search parameters:
+- Example: `http://localhost:5173/tasks?status=IN_PROGRESS&priority=HIGH`
+- Sharing or refreshing this URL reproduces the exact filter state across different browsers.
+
+---
+
+## Known Limitations & Production Enhancements
+
+1. **Distributed Cron**: In multi-instance cluster deployments, `node-cron` should be transitioned to a distributed job queue (e.g., BullMQ with Redis) to prevent duplicate runs across horizontal pods.
+2. **File Attachments**: Tasks currently support markdown descriptions; binary attachment storage (e.g., AWS S3 or Cloud Storage) can be plugged in via signed URLs.
+3. **Audit Log Archival**: Historical activity logs can be partitioned or archived to cold storage after 90 days in enterprise scale deployments.
