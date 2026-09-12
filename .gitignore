@@ -1,3 +1,11 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+!.env.example
+
 # Dependencies
 node_modules
 .pnpm-store
@@ -5,14 +13,6 @@ node_modules
 # Production build output
 dist
 build
-
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-!.env.example
 
 # Logs & debugging
 *.log
@@ -32,5 +32,10 @@ Thumbs.db
 *.sln
 *.sw?
 
-# TypeScript cache
+# TypeScript build cache
 *.tsbuildinfo
+
+# Verification & scratch files
+test_*.mjs
+verify_*.mjs
+scratch/
