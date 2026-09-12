@@ -82,12 +82,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const setDemoUser = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('Password123!');
-    setError('');
-  };
-
   return (
     <div className="min-h-screen flex bg-white text-slate-900 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Left Column - Clean Authentication Form */}
@@ -211,62 +205,7 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Quick Demo Logins for Convenience */}
-          <div className="pt-2">
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 text-center">
-              Quick Switch (Demo Accounts)
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setDemoUser('admin@velozity.com')}
-                className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoUser('pm1@velozity.com')}
-                className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                PM 1
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoUser('pm2@velozity.com')}
-                className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                PM 2
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoUser('dev1@velozity.com')}
-                className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                Dev 1
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoUser('dev2@velozity.com')}
-                className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                Dev 2
-              </button>
-            </div>
-          </div>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-3 text-[11px] font-bold text-slate-400">
-                OR
-              </span>
-            </div>
-          </div>
-
-          <div className="text-center">
+          <div className="text-center pt-2">
             <p className="text-xs text-slate-400">
               By signing in, you agree to our internal access policy.
             </p>
