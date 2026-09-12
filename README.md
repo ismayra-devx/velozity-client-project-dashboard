@@ -243,3 +243,10 @@ Task Explorer filters are bound bidirectionally to URL search parameters:
 1. **Distributed Cron**: In multi-instance cluster deployments, `node-cron` should be transitioned to a distributed job queue (e.g., BullMQ with Redis) to prevent duplicate runs across horizontal pods.
 2. **File Attachments**: Tasks currently support markdown descriptions; binary attachment storage (e.g., AWS S3 or Cloud Storage) can be plugged in via signed URLs.
 3. **Audit Log Archival**: Historical activity logs can be partitioned or archived to cold storage after 90 days in enterprise scale deployments.
+
+
+## Known Limitations & Production Enhancements
+
+1. **Distributed Cron**: In multi-instance cluster deployments, `node-cron` should be transitioned to a distributed job queue (e.g., BullMQ with Redis) to prevent duplicate runs across horizontal pods.
+2. **File Attachments**: Tasks currently support markdown descriptions; binary attachment storage (e.g., AWS S3 or Cloud Storage) can be plugged in via signed URLs.
+3. **Audit Log Archival**: Historical activity logs can be partitioned or archived to cold storage after 90 days in enterprise scale deployments.
