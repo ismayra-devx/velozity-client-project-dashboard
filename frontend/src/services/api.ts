@@ -1,3 +1,5 @@
+import { handleDemoRequest } from './demoData.js';
+
 let inMemoryAccessToken: string | null = null;
 
 export function setAccessToken(token: string | null) {
@@ -42,7 +44,18 @@ export async function apiRequest<T = any>(
     credentials: 'include', // Includes HttpOnly cookies
   };
 
-  let response = await fetch(url, fetchOptions);
+  let response: Response;
+  try {
+    response = await fetch(url, fetchOptions);
+
+    // If on static Vercel host without backend (405 Method Not Allowed or 404), fallback to interactive demo
+    if (response.status === 405 || response.status === 404) {
+      return handleDemoRequest<T>(endpoint, options);
+    }
+  } catch (err) {
+    // Network failure (backend offline/not reachable) -> fallback to interactive demo
+    return handleDemoRequest<T>(endpoint, options);
+  }
 
   // If 401, attempt automatic refresh token exchange
   if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
