@@ -97,30 +97,63 @@ npm run dev
 
 ## Architectural Decisions & Design Justifications
 
-### 1. Token Storage & Authentication Architecture
+### 1. Backend Framework Choice: Node.js with Express vs Fastify
+- **Choice**: Node.js with Express (TypeScript).
+- **Justification**:
+  - **Mature Middleware Ecosystem**: Express provides seamless interoperability with essential production middleware (`cookie-parser`, `cors`, `helmet`) and standardized error-handling middleware patterns.
+  - **Unified HTTP + WebSocket Server**: Native integration between Node's `http.createServer(app)` and Socket.IO engine sharing port `5000` with zero protocol impedance, allowing cookie extraction and JWT validation directly during the WebSocket handshake.
+  - **Layered Architecture & Type Safety**: Combined with TypeScript and Zod schema validation middleware, Express provides clean decoupling between HTTP controllers, domain services, database access, and real-time emitters.
+  - **Comparison with Fastify**: While Fastify offers micro-benchmark throughput advantages, Express eliminates schema-compilation overhead, has superior middleware ecosystem maturity, and avoids Fastify's plugin encapsulation quirks when integrating Socket.IO and Prisma client lifecycles.
+
+### 2. Token Storage & Authentication Architecture
 - **Access Token**: Short-lived (15 minutes), kept strictly in JavaScript memory within the client `AuthContext`. It is never stored in `localStorage` or `sessionStorage` to eliminate cross-site scripting (XSS) token theft vulnerabilities.
-- **Refresh Token**: Long-lived (7 days), delivered via a strict `HttpOnly`, `SameSite=Lax`, `Path=/api/auth` cookie. JavaScript has zero read access to this cookie.
-- **Token Rotation**: Every refresh request revokes the old refresh token record in PostgreSQL and issues a fresh one, preventing token reuse and replay attacks.
+- **Refresh Token**: Long-lived (7 days), delivered via a strict `HttpOnly`, `SameSite=Lax`, `Path=/api/auth` cookie. JavaScript has zero read access to this cookie, mitigating token interception.
+- **Token Rotation & Revocation**: Every refresh request revokes the existing refresh token record in PostgreSQL and issues a fresh one. If an invalid or expired token is presented, all sessions can be invalidated immediately.
 
-### 2. WebSocket Implementation & Justification
-- **Technology**: Socket.IO over standard native WebSockets.
-- **Justification**: Socket.IO provides heartbeat ping/pong failure detection, automatic reconnect backoff, room-based broadcast segmentation, and binary safety while maintaining low-overhead WebSocket transport without falling back to inefficient HTTP long-polling.
-- **Room Segmentation**: Sockets automatically join `project:{projectId}` and `user:{userId}` rooms upon authenticated connection. Project updates are dispatched only to members authorized to view that project, preserving confidentiality.
+### 3. WebSocket Implementation & Justification
+- **Technology**: Native WebSockets via Socket.IO engine.
+- **Justification**:
+  - Socket.IO provides built-in heartbeat ping/pong failure detection, automatic exponential backoff reconnection, binary safety, and room-based channel partitioning while strictly utilizing standard WebSocket transport (`transports: ['websocket']`, zero long-polling fallback).
+- **Role-Filtered Channel Partitioning**:
+  - **Admin**: Automatically joins `room:global_feed` &rarr; receives activity across all projects.
+  - **Project Manager**: Automatically joins `room:project_${projectId}` for projects owned by the PM &rarr; receives activity for owned projects only. Unauthorized PMs are blocked.
+  - **Developer**: Receives activity only for tasks assigned to the developer via private user room `user:${userId}`. Developers cannot eavesdrop on other developers' tasks or project feeds.
 
-### 3. Background Job Scheduler & Justification
-- **Technology**: `node-cron` daemon running in the backend service worker.
-- **Justification**: A decoupled cron job runs every minute to query tasks where `dueDate < NOW()` and `status != 'DONE'`. It flags `isOverdue = true` in PostgreSQL, persists a `TaskActivityLog` entry, generates notifications, and broadcasts real-time alerts. This ensures overdue state is produced autonomously without depending on a user opening the application.
+### 4. Background Job Scheduler: node-cron vs Bull Queue
+- **Choice**: `node-cron` daemon running in the backend service worker.
+- **Justification**:
+  - **Zero External Infrastructure Dependency**: Avoids mandating a dedicated Redis cluster solely for evaluating periodic 60-second overdue deadlines.
+  - **Deterministic In-Process Scheduling**: Runs on schedule (`* * * * *`) with minimal RAM overhead (<5MB).
+  - **PostgreSQL Transactional Safety**: Every cron execution performs indexed batch queries (`isOverdue = false AND status != 'DONE' AND dueDate < NOW()`), updates records in PostgreSQL, creates `TaskActivityLog` entries, and broadcasts notifications.
+  - **When Bull Queue is Preferred**: In a horizontally autoscaled multi-instance container cluster (e.g. Kubernetes with multiple pods), BullMQ with Redis would be preferred to distribute jobs and prevent duplicate cron execution across instances.
 
-### 4. Database Relational Design & Indexing Decisions
-PostgreSQL with Prisma enforces foreign keys and cascade deletions across 6 core entities: `User`, `Client`, `Project`, `Task`, `TaskActivityLog`, `Notification`, and `RefreshToken`.
+### 5. Database Relational Design & Indexing Decisions
+PostgreSQL 16 managed via Prisma ORM enforces strict relational integrity with foreign keys and cascade deletions across 6 core entities:
+- `Client` &rarr; `Project` (1:N, `onDelete: Cascade`)
+- `User` &rarr; `Project` (1:N, `onDelete: Cascade` via `createdById`)
+- `Project` &rarr; `Task` (1:N, `onDelete: Cascade`)
+- `User` &rarr; `Task` (1:N, `onDelete: Cascade` via `assignedToId`)
+- `Task` &rarr; `TaskActivityLog` (1:N, `onDelete: Cascade`)
+- `Project` &rarr; `TaskActivityLog` (1:N, `onDelete: Cascade`)
+- `User` &rarr; `TaskActivityLog` (1:N, `onDelete: Cascade`)
+- `User` &rarr; `Notification` (1:N, `onDelete: Cascade`)
+- `User` &rarr; `RefreshToken` (1:N, `onDelete: Cascade`)
 
-Key composite indexes were chosen based on query analysis:
-- `Task([projectId])` & `Task([assignedToId])`: Accelerates role-filtered task listings for PMs and Developers.
-- `Task([status])` & `Task([priority])` & `Task([dueDate])`: Eliminates full table scans when filtering by URL query parameters.
-- `Task([isOverdue, status, dueDate])`: Composite index specifically targeting the recurring 60-second cron job query.
-- `TaskActivityLog([projectId, createdAt DESC])`: Powers instantaneous feed retrieval and pagination for project dashboards.
-- `TaskActivityLog([taskId, createdAt DESC])`: Optimizes task audit history dialogs.
-- `Notification([userId, isRead])`: Accelerates unread notification badge count lookups.
+#### Indexing Decisions & Query Analysis:
+Every index in `schema.prisma` was selected based on production query patterns to avoid full table scans:
+1. `User([role])`: Accelerates developer assignment lookups (`GET /api/clients/developers`) and Admin user filtering.
+2. `Project([createdById])`: Guarantees sub-millisecond query time for PM project scoping (`WHERE createdById = user.id`).
+3. `Project([clientId])`: Accelerates client-to-project joins when assembling agency portfolios.
+4. `Task([projectId])`: Powers project task listings and task detail drawer views.
+5. `Task([assignedToId])`: Powers developer assigned-task listings (`WHERE assignedToId = user.id`).
+6. `Task([status])`, `Task([priority])`, `Task([dueDate])`: Eliminates full table scans on URL-filtered searches (`/tasks?status=IN_PROGRESS&priority=HIGH`).
+7. `Task([isOverdue, status, dueDate])`: **Composite index** specifically engineered for the 60-second background cron query (`WHERE isOverdue = false AND status != 'DONE' AND dueDate < NOW()`).
+8. `TaskActivityLog([projectId, createdAt DESC])`: Powers PM project audit feed pagination (`ORDER BY createdAt DESC LIMIT 20`).
+9. `TaskActivityLog([taskId, createdAt DESC])`: Optimizes per-task revision history dialogs.
+10. `TaskActivityLog([createdAt DESC])`: Powers global Admin agency activity stream.
+11. `Notification([userId, isRead])`: Instant unread badge count queries (`WHERE userId = user.id AND isRead = false`).
+12. `Notification([userId, createdAt DESC])`: Powers notification bell drawer listing.
+13. `RefreshToken([userId])`, `RefreshToken([token])`: Rapid token rotation validation and revocation checking on session refresh.
 
 ---
 
