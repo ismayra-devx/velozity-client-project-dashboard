@@ -68,7 +68,7 @@ All demo accounts share the password: `Password123!`
 | **PM 1** | Jordan Lee | `pm1@velozity.com` | Manages own projects (*Omnichannel E-Commerce*, *NextGen Telehealth*), assigns tasks, monitors team |
 | **PM 2** | Elena Rostova | `pm2@velozity.com` | Manages own projects (*Cloud Infrastructure Modernization*), strictly isolated from PM 1 |
 | **Dev 1** | Ravi Sharma | `dev1@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
-| **Dev 2** | Priya Patel | `dev2@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
+| **Dev 2** | Elena Rostova | `dev2@velozity.com` | Views assigned queue, 1-click status transitions, personal workload metrics |
 
 ---
 
