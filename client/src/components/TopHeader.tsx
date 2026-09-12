@@ -60,22 +60,15 @@ export const TopHeader: React.FC = () => {
 
       {/* Right Status & Controls */}
       <div className="flex items-center gap-6">
-        {/* WebSocket Live Status */}
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-          <span className="relative flex h-2 w-2">
-            <span
-              className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
-                isConnected ? 'bg-emerald-400' : 'bg-rose-400'
-              } opacity-75`}
-            />
-            <span
-              className={`relative inline-flex rounded-full h-2 w-2 ${
-                isConnected ? 'bg-emerald-500' : 'bg-rose-500'
-              }`}
-            />
-          </span>
-          <span className="text-slate-600 font-medium">
-            {isConnected ? 'WebSocket Connected' : 'Connecting...'}
+        {/* System Connection Status */}
+        <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isConnected ? 'bg-emerald-500' : 'bg-slate-400'
+            }`}
+          />
+          <span className="text-slate-500">
+            {isConnected ? 'Connected' : 'Connecting...'}
           </span>
         </div>
 

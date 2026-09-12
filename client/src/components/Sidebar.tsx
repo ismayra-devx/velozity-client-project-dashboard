@@ -6,10 +6,9 @@ import {
   CheckSquare,
   Users,
   Building2,
-  Zap,
+  Activity,
   Bell,
   UserCog,
-  Settings,
   Layers,
   ChevronDown,
   LogOut,
@@ -17,11 +16,7 @@ import {
 import { useAuth } from '../context/AuthContext.js';
 import { useSocket } from '../context/SocketContext.js';
 
-interface SidebarProps {
-  onOpenNotifications?: () => void;
-}
-
-export const Sidebar: React.FC<SidebarProps> = () => {
+export const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
   const { unreadNotificationCount } = useSocket();
   const location = useLocation();
@@ -73,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = () => {
               to="/"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 location.pathname === '/'
-                  ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-500/5'
+                  ? 'bg-blue-50 text-blue-600'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
@@ -127,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = () => {
               </div>
 
               <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
-                <Zap className="w-4 h-4 text-slate-400" />
+                <Activity className="w-4 h-4 text-slate-400" />
                 <span>Activity Feed</span>
               </div>
 
@@ -155,10 +150,6 @@ export const Sidebar: React.FC<SidebarProps> = () => {
                 <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
                   <UserCog className="w-4 h-4 text-slate-400" />
                   <span>User Management</span>
-                </div>
-                <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
-                  <Settings className="w-4 h-4 text-slate-400" />
-                  <span>Settings</span>
                 </div>
               </nav>
             </div>

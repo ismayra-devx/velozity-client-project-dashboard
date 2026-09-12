@@ -169,7 +169,7 @@ export async function getDashboardData(user: AuthUser) {
       totalTasks,
       tasksByStatus,
       tasksByPriority,
-      upcomingDueDatesThisWeek,
+      upcomingDueDatesThisWeek: upcomingTasksThisWeek,
       overdueCount,
       teamWorkload,
       myTasks: allPMTasks.slice(0, 5),

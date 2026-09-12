@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FolderKanban,
   CheckSquare,
@@ -6,14 +7,14 @@ import {
   Users,
   Plus,
   ArrowRight,
-  MoreVertical,
   CheckCircle2,
   AlertTriangle,
+  CheckCheck,
+  Check,
 } from 'lucide-react';
 import { apiRequest } from '../services/api.js';
-import { useAuth } from '../context/AuthContext.js';
 import { useSocket } from '../context/SocketContext.js';
-import { AdminDashboardMetrics, Project } from '../types/index.js';
+import { AdminDashboardMetrics, Project, ActivityItem } from '../types/index.js';
 import { CreateProjectModal } from '../components/CreateProjectModal.js';
 import { CreateTaskModal } from '../components/CreateTaskModal.js';
 
@@ -22,18 +23,27 @@ function formatRelativeTime(dateString: string): string {
   const diffSec = Math.floor(diffMs / 1000);
   if (diffSec < 60) return 'just now';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} mins ago`;
+  if (diffMin < 60) return `${diffMin}m ago`;
   const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `${diffHours} hrs ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} days ago`;
+  return `${diffDays}d ago`;
 }
 
 export const AdminDashboardPage: React.FC = () => {
-  const { user } = useAuth();
-  const { activeUserCount, activities } = useSocket();
+  const navigate = useNavigate();
+  const {
+    activeUserCount,
+    activities: socketActivities,
+    notifications,
+    unreadNotificationCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+  } = useSocket();
+
   const [metrics, setMetrics] = useState<AdminDashboardMetrics | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [dbActivities, setDbActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -41,12 +51,14 @@ export const AdminDashboardPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [dashData, projData] = await Promise.all([
+      const [dashData, projData, actData] = await Promise.all([
         apiRequest<AdminDashboardMetrics>('/dashboard'),
         apiRequest<{ projects: Project[] }>('/projects'),
+        apiRequest<{ activities: ActivityItem[] }>('/activities?limit=20').catch(() => ({ activities: [] })),
       ]);
       setMetrics(dashData);
       setProjects(projData.projects || []);
+      setDbActivities(actData.activities || []);
     } catch (err) {
       console.error('Failed loading admin dashboard data:', err);
     } finally {
@@ -61,446 +73,540 @@ export const AdminDashboardPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-700" />
       </div>
     );
   }
 
-  // Format today's date like "Thursday, 11 September 2026"
-  const formattedDate = new Intl.DateTimeFormat('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date());
+  // Merge database activities and real-time socket activities without duplicates
+  const mergedActivities: ActivityItem[] = [...socketActivities];
+  dbActivities.forEach((act) => {
+    if (!mergedActivities.some((a) => a.id === act.id)) {
+      mergedActivities.push(act);
+    }
+  });
+  mergedActivities.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 
-  const tasksByStatus = metrics?.tasksByStatus || { TODO: 6, IN_PROGRESS: 5, IN_REVIEW: 3, DONE: 4 };
-  const totalTasks = Object.values(tasksByStatus).reduce((a, b) => a + b, 0) || 18;
+  const tasksByStatus = metrics?.tasksByStatus || {
+    TODO: 0,
+    IN_PROGRESS: 0,
+    IN_REVIEW: 0,
+    DONE: 0,
+  };
 
-  // Donut SVG circumference math
+  const totalTasks =
+    (tasksByStatus.TODO || 0) +
+    (tasksByStatus.IN_PROGRESS || 0) +
+    (tasksByStatus.IN_REVIEW || 0) +
+    (tasksByStatus.DONE || 0);
+
+  const activeProjectsCount = projects.filter((p) => p.status === 'ACTIVE').length;
+  const overdueCount = metrics?.overdueTaskCount ?? 0;
+  const onlineCount = activeUserCount > 0 ? activeUserCount : metrics?.activeUsersOnline || 1;
+
+  // Donut SVG circumference calculation
   const radius = 62;
   const circumference = 2 * Math.PI * radius;
-  const todoPct = (tasksByStatus.TODO || 0) / totalTasks;
-  const ipPct = (tasksByStatus.IN_PROGRESS || 0) / totalTasks;
-  const irPct = (tasksByStatus.IN_REVIEW || 0) / totalTasks;
-  const donePct = (tasksByStatus.DONE || 0) / totalTasks;
+  const todoPct = totalTasks > 0 ? (tasksByStatus.TODO || 0) / totalTasks : 0;
+  const ipPct = totalTasks > 0 ? (tasksByStatus.IN_PROGRESS || 0) / totalTasks : 0;
+  const irPct = totalTasks > 0 ? (tasksByStatus.IN_REVIEW || 0) / totalTasks : 0;
+  const donePct = totalTasks > 0 ? (tasksByStatus.DONE || 0) / totalTasks : 0;
 
   const todoDash = todoPct * circumference;
   const ipDash = ipPct * circumference;
   const irDash = irPct * circumference;
   const doneDash = donePct * circumference;
 
-  // Priority bar chart counts (approximated or mapped from tasks)
-  const priorityCounts = {
-    LOW: 1.5,
-    MEDIUM: 4.5,
-    HIGH: 3.5,
-    CRITICAL: 2.2,
-  };
+  const formattedDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date());
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Greeting & Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
-          <div className="text-xs font-semibold text-slate-500">
-            Good morning, {user?.name?.split(' ')[0] || 'Sarah'}
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-            Here's what's happening at Velozity
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
           <p className="text-xs text-slate-500 mt-1">
-            A real-time overview of your agency's projects, tasks, and team activity.
+            Overview of agency projects, task progression, and active members.
           </p>
         </div>
 
-        <div className="flex flex-col sm:items-end gap-2 shrink-0">
-          <div className="text-xs font-semibold text-slate-500">{formattedDate}</div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs text-slate-500 hidden md:inline">{formattedDate}</span>
+          <button
+            onClick={() => setIsCreateTaskOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Task</span>
+          </button>
           <button
             onClick={() => setIsCreateProjectOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>New Project</span>
           </button>
         </div>
       </div>
 
-      {/* 4 Metric Cards Grid */}
+      {/* 4 Metric KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Projects */}
-        <div className="dashboard-card p-5 space-y-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <FolderKanban className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500">Total Projects</div>
-            <div className="text-3xl font-extrabold text-slate-900 mt-0.5">
-              {metrics?.totalProjects ?? projects.length}
+        <div className="dashboard-card p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">Total Projects</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+              <FolderKanban className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-            <span>↑ 1 from last month</span>
+          <div className="text-2xl font-bold text-slate-900 mt-2">
+            {metrics?.totalProjects ?? projects.length}
+          </div>
+          <div className="text-xs text-slate-500 mt-1.5">
+            {activeProjectsCount} active {activeProjectsCount === 1 ? 'project' : 'projects'}
           </div>
         </div>
 
         {/* Card 2: Total Tasks */}
-        <div className="dashboard-card p-5 space-y-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <CheckSquare className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500">Total Tasks</div>
-            <div className="text-3xl font-extrabold text-slate-900 mt-0.5">
-              {totalTasks}
+        <div className="dashboard-card p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">Total Tasks</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+              <CheckSquare className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-            <span>↑ 4 from last month</span>
+          <div className="text-2xl font-bold text-slate-900 mt-2">{totalTasks}</div>
+          <div className="text-xs text-slate-500 mt-1.5">
+            {tasksByStatus.DONE || 0} completed ({totalTasks > 0 ? Math.round(((tasksByStatus.DONE || 0) / totalTasks) * 100) : 0}%)
           </div>
         </div>
 
-        {/* Card 3: Overdue Tasks */}
-        <div className="dashboard-card p-5 space-y-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500">Overdue Tasks</div>
-            <div className="text-3xl font-extrabold text-slate-900 mt-0.5">
-              {metrics?.overdueTaskCount ?? 2}
+        {/* Card 3: Overdue Tasks - Only card that uses restrained red when > 0 */}
+        <div
+          className={`dashboard-card p-5 ${
+            overdueCount > 0 ? 'border-rose-200/80 bg-rose-50/20' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-medium ${overdueCount > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+              Overdue Tasks
+            </span>
+            <div
+              className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                overdueCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {overdueCount > 0 ? <AlertTriangle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
             </div>
           </div>
-          <div className="text-[11px] font-semibold text-rose-600 flex items-center gap-1">
-            <span>↑ 1 from last week</span>
+          <div className={`text-2xl font-bold mt-2 ${overdueCount > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+            {overdueCount}
+          </div>
+          <div className={`text-xs mt-1.5 ${overdueCount > 0 ? 'text-rose-600 font-medium' : 'text-slate-500'}`}>
+            {overdueCount > 0 ? 'Requires attention' : 'All tasks on schedule'}
           </div>
         </div>
 
         {/* Card 4: Active Users */}
-        <div className="dashboard-card p-5 space-y-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-slate-500">Active Users</div>
-            <div className="text-3xl font-extrabold text-slate-900 mt-0.5">
-              {metrics?.totalUsers ?? 7}
+        <div className="dashboard-card p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">Active Users</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+              <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{activeUserCount > 0 ? `${activeUserCount} online now` : '1 online now'}</span>
+          <div className="text-2xl font-bold text-slate-900 mt-2">{onlineCount}</div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Online now · {metrics?.totalUsers ?? 7} registered</span>
           </div>
         </div>
       </div>
 
-      {/* Middle Row: Two Charts */}
+      {/* Middle Row: Tasks by Status & Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Left Chart: Tasks by Status Donut */}
-        <div className="dashboard-card p-6">
-          <h3 className="text-sm font-bold text-slate-900 mb-6">Tasks by Status</h3>
-          <div className="flex flex-col sm:flex-row items-center justify-around gap-8">
-            {/* SVG Donut */}
-            <div className="relative w-44 h-44 shrink-0 flex items-center justify-center">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
-                {/* Background Ring */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r={radius}
-                  stroke="#f1f5f9"
-                  strokeWidth="16"
-                  fill="transparent"
-                />
-                {/* Done Segment (Green) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r={radius}
-                  stroke="#10b981"
-                  strokeWidth="16"
-                  strokeDasharray={`${doneDash} ${circumference}`}
-                  strokeDashoffset={0}
-                  fill="transparent"
-                />
-                {/* In Review Segment (Yellow/Amber) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r={radius}
-                  stroke="#f59e0b"
-                  strokeWidth="16"
-                  strokeDasharray={`${irDash} ${circumference}`}
-                  strokeDashoffset={-doneDash}
-                  fill="transparent"
-                />
-                {/* In Progress Segment (Blue) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r={radius}
-                  stroke="#3b82f6"
-                  strokeWidth="16"
-                  strokeDasharray={`${ipDash} ${circumference}`}
-                  strokeDashoffset={-(doneDash + irDash)}
-                  fill="transparent"
-                />
-                {/* To Do Segment (Slate) */}
-                <circle
-                  cx="80"
-                  cy="80"
-                  r={radius}
-                  stroke="#94a3b8"
-                  strokeWidth="16"
-                  strokeDasharray={`${todoDash} ${circumference}`}
-                  strokeDashoffset={-(doneDash + irDash + ipDash)}
-                  fill="transparent"
-                />
-              </svg>
-              {/* Donut Center Label */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl font-extrabold text-slate-900 leading-tight">
-                  {totalTasks}
-                </span>
-                <span className="text-xs font-semibold text-slate-400">Tasks</span>
-              </div>
-            </div>
-
-            {/* Legend List */}
-            <div className="space-y-3.5 w-full max-w-[200px]">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#94a3b8]" />
-                  <span className="text-slate-600 font-medium">To Do</span>
-                </div>
-                <span className="font-bold text-slate-900">{tasksByStatus.TODO}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]" />
-                  <span className="text-slate-600 font-medium">In Progress</span>
-                </div>
-                <span className="font-bold text-slate-900">{tasksByStatus.IN_PROGRESS}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
-                  <span className="text-slate-600 font-medium">In Review</span>
-                </div>
-                <span className="font-bold text-slate-900">{tasksByStatus.IN_REVIEW}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
-                  <span className="text-slate-600 font-medium">Done</span>
-                </div>
-                <span className="font-bold text-slate-900">{tasksByStatus.DONE}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Chart: Tasks by Priority Bar Chart */}
-        <div className="dashboard-card p-6">
-          <h3 className="text-sm font-bold text-slate-900 mb-6">Tasks by Priority</h3>
-          
-          <div className="flex h-48 gap-3 items-end">
-            {/* Y-Axis scale */}
-            <div className="flex flex-col justify-between text-[11px] font-semibold text-slate-400 h-full pb-6 pr-2">
-              <span>8</span>
-              <span>6</span>
-              <span>4</span>
-              <span>2</span>
-              <span>0</span>
-            </div>
-
-            {/* Bars Area */}
-            <div className="flex-1 grid grid-cols-4 gap-4 h-full border-b border-slate-100 pb-6 items-end">
-              {/* Low Bar */}
-              <div className="flex flex-col items-center gap-2 h-full justify-end group">
-                <div
-                  style={{ height: `${(priorityCounts.LOW / 8) * 100}%` }}
-                  className="w-full max-w-[48px] bg-[#94a3b8] rounded-t-lg transition-all group-hover:opacity-90"
-                />
-              </div>
-
-              {/* Medium Bar */}
-              <div className="flex flex-col items-center gap-2 h-full justify-end group">
-                <div
-                  style={{ height: `${(priorityCounts.MEDIUM / 8) * 100}%` }}
-                  className="w-full max-w-[48px] bg-[#3b82f6] rounded-t-lg transition-all group-hover:opacity-90"
-                />
-              </div>
-
-              {/* High Bar */}
-              <div className="flex flex-col items-center gap-2 h-full justify-end group">
-                <div
-                  style={{ height: `${(priorityCounts.HIGH / 8) * 100}%` }}
-                  className="w-full max-w-[48px] bg-[#f97316] rounded-t-lg transition-all group-hover:opacity-90"
-                />
-              </div>
-
-              {/* Critical Bar */}
-              <div className="flex flex-col items-center gap-2 h-full justify-end group">
-                <div
-                  style={{ height: `${(priorityCounts.CRITICAL / 8) * 100}%` }}
-                  className="w-full max-w-[48px] bg-[#f43f5e] rounded-t-lg transition-all group-hover:opacity-90"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* X-Axis labels */}
-          <div className="grid grid-cols-4 gap-4 pl-7 text-[11px] font-semibold text-slate-500 text-center pt-2">
-            <span>Low</span>
-            <span>Medium</span>
-            <span>High</span>
-            <span>Critical</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Row: Active Projects and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Left: Active Projects */}
+        {/* Left: Tasks by Status */}
         <div className="dashboard-card p-6 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-slate-900">Active Projects</h3>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Tasks by Status</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Distribution across all projects</p>
+              </div>
               <button
-                onClick={() => setIsCreateProjectOpen(true)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                onClick={() => navigate('/tasks')}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
               >
                 <span>View all</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              {projects.slice(0, 3).map((p, idx) => {
-                const initials = p.name
-                  .split(' ')
-                  .map((w) => w[0])
-                  .join('')
-                  .toUpperCase()
-                  .slice(0, 2);
+            {totalTasks === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                No tasks found. Create a task to track workflow progress.
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-around gap-8 py-2">
+                {/* SVG Donut */}
+                <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r={radius}
+                      stroke="#f1f5f9"
+                      strokeWidth="14"
+                      fill="transparent"
+                    />
+                    {/* Done */}
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r={radius}
+                      stroke="#16a34a"
+                      strokeWidth="14"
+                      strokeDasharray={`${doneDash} ${circumference}`}
+                      strokeDashoffset={0}
+                      fill="transparent"
+                    />
+                    {/* In Review */}
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r={radius}
+                      stroke="#d97706"
+                      strokeWidth="14"
+                      strokeDasharray={`${irDash} ${circumference}`}
+                      strokeDashoffset={-doneDash}
+                      fill="transparent"
+                    />
+                    {/* In Progress */}
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r={radius}
+                      stroke="#2563eb"
+                      strokeWidth="14"
+                      strokeDasharray={`${ipDash} ${circumference}`}
+                      strokeDashoffset={-(doneDash + irDash)}
+                      fill="transparent"
+                    />
+                    {/* To Do */}
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r={radius}
+                      stroke="#94a3b8"
+                      strokeWidth="14"
+                      strokeDasharray={`${todoDash} ${circumference}`}
+                      strokeDashoffset={-(doneDash + irDash + ipDash)}
+                      fill="transparent"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-2xl font-bold text-slate-900 leading-tight">
+                      {totalTasks}
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-400">Total</span>
+                  </div>
+                </div>
 
-                const badgeBg =
-                  idx === 0
-                    ? 'bg-blue-50 text-blue-600'
-                    : idx === 1
-                    ? 'bg-purple-50 text-purple-600'
-                    : 'bg-rose-50 text-rose-600';
-
-                return (
-                  <div
-                    key={p.id}
-                    className="p-3 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-between gap-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl ${badgeBg} font-extrabold text-xs flex items-center justify-center shrink-0`}
-                      >
-                        {initials}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 leading-tight">
-                          {p.name}
-                        </div>
-                        <div className="text-[11px] text-slate-400 font-medium">
-                          Client: {p.client?.name || 'Corporate Client'}
-                        </div>
-                      </div>
+                {/* Status Legend Breakdown */}
+                <div className="space-y-3 w-full max-w-[220px]">
+                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#94a3b8]" />
+                      <span className="text-slate-600 font-medium">To Do</span>
                     </div>
-
-                    <div className="flex items-center gap-4 shrink-0">
-                      {/* Progress bar */}
-                      <div className="hidden sm:block text-right">
-                        <div className="w-20 bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1">
-                          <div
-                            className={`h-full rounded-full ${
-                              idx === 0 ? 'bg-emerald-500 w-full' : 'bg-blue-500 w-full'
-                            }`}
-                          />
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-medium">6/6 tasks</span>
-                      </div>
-
-                      {/* Status Tag */}
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
-                        Active
+                    <div className="font-semibold text-slate-900">
+                      {tasksByStatus.TODO || 0}{' '}
+                      <span className="text-slate-400 font-normal">
+                        ({Math.round(todoPct * 100)}%)
                       </span>
-
-                      <button className="text-slate-400 hover:text-slate-600">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#2563eb]" />
+                      <span className="text-slate-600 font-medium">In Progress</span>
+                    </div>
+                    <div className="font-semibold text-slate-900">
+                      {tasksByStatus.IN_PROGRESS || 0}{' '}
+                      <span className="text-slate-400 font-normal">
+                        ({Math.round(ipPct * 100)}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#d97706]" />
+                      <span className="text-slate-600 font-medium">In Review</span>
+                    </div>
+                    <div className="font-semibold text-slate-900">
+                      {tasksByStatus.IN_REVIEW || 0}{' '}
+                      <span className="text-slate-400 font-normal">
+                        ({Math.round(irPct * 100)}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]" />
+                      <span className="text-slate-600 font-medium">Done</span>
+                    </div>
+                    <div className="font-semibold text-slate-900">
+                      {tasksByStatus.DONE || 0}{' '}
+                      <span className="text-slate-400 font-normal">
+                        ({Math.round(donePct * 100)}%)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right: Recent Activity Live Feed */}
+        {/* Right: Notifications */}
+        <div className="dashboard-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-900">Notifications</h2>
+                {unreadNotificationCount > 0 && (
+                  <span className="px-2 py-0.5 text-[10px] font-bold text-slate-700 bg-slate-100 rounded-full border border-slate-200">
+                    {unreadNotificationCount} unread
+                  </span>
+                )}
+              </div>
+              {unreadNotificationCount > 0 && (
+                <button
+                  onClick={() => markAllNotificationsRead()}
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Mark all read</span>
+                </button>
+              )}
+            </div>
+
+            {notifications.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                No notifications to display.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-[260px] overflow-y-auto pr-1">
+                {notifications.slice(0, 5).map((n) => (
+                  <div
+                    key={n.id}
+                    className={`py-3 flex items-start justify-between gap-3 text-xs transition-colors ${
+                      n.isRead ? 'opacity-70' : 'opacity-100'
+                    }`}
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="font-semibold text-slate-900 leading-snug">
+                        {n.title}
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed truncate">
+                        {n.message}
+                      </p>
+                      <div className="text-[10px] text-slate-400">
+                        {formatRelativeTime(n.createdAt)}
+                      </div>
+                    </div>
+                    {!n.isRead && (
+                      <button
+                        onClick={() => markNotificationRead(n.id)}
+                        className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors shrink-0"
+                        title="Mark as read"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Row: Active Projects & Global Activity Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Active Projects */}
         <div className="dashboard-card p-6 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-slate-900">Recent Activity</h3>
-              <span className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer">
-                <span>View all</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </span>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Active Projects</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Projects currently under management</p>
+              </div>
+              <button
+                onClick={() => setIsCreateProjectOpen(true)}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add project</span>
+              </button>
             </div>
 
-            <div className="space-y-4">
-              {activities.slice(0, 5).map((act, index) => {
-                const isOverdue = act.action === 'OVERDUE_FLAGGED' || act.message.includes('Overdue');
-                const isDone = act.message.includes('Done');
+            {projects.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                No active projects found.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {projects.slice(0, 4).map((p) => {
+                  const initials = p.name
+                    .split(' ')
+                    .map((w) => w[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2);
 
-                const iconBg = isOverdue
-                  ? 'bg-rose-50 text-rose-500'
-                  : isDone
-                  ? 'bg-emerald-50 text-emerald-600'
-                  : index % 2 === 0
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'bg-emerald-50 text-emerald-600';
+                  const clientName = p.client?.name || p.client?.company || 'Internal';
+                  const taskCount = p._count?.tasks ?? p.tasks?.length ?? 0;
 
-                const Icon = isOverdue ? AlertTriangle : isDone ? CheckCircle2 : FolderKanban;
-
-                return (
-                  <div
-                    key={act.id}
-                    className="flex items-start justify-between gap-3 text-xs"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-full ${iconBg} flex items-center justify-center shrink-0 mt-0.5`}
-                      >
-                        <Icon className="w-4 h-4" />
+                  return (
+                    <div
+                      key={p.id}
+                      className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-900 truncate">
+                            {p.name}
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            Client: {clientName}
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-0.5">
-                        <div className="font-semibold text-slate-800 leading-snug">
-                          {act.message}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {act.project?.name || 'Velozity Project'}
-                        </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[11px] text-slate-500 hidden sm:inline">
+                          {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                          {p.status}
+                        </span>
+                        <button
+                          onClick={() => navigate('/tasks')}
+                          className="text-xs font-medium text-slate-500 hover:text-slate-900 p-1"
+                          title="View tasks"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
 
-                    <div className="text-[11px] text-slate-400 whitespace-nowrap shrink-0 pt-0.5">
-                      {formatRelativeTime(act.createdAt)}
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Right: Global Activity Feed */}
+        <div className="dashboard-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Recent Activity</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Global audit trail across all operations</p>
+              </div>
             </div>
+
+            {mergedActivities.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                No activity recorded yet.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                {mergedActivities.slice(0, 6).map((act) => {
+                  const isOverdue =
+                    act.action === 'OVERDUE_FLAGGED' || act.message.includes('Overdue');
+                  const isDone = act.message.includes('DONE') || act.message.includes('Done');
+                  const actorName = act.user?.name || 'System';
+                  const projectName = act.project?.name || 'Velozity';
+                  const roleLabel =
+                    act.user?.role === 'PROJECT_MANAGER'
+                      ? 'PM'
+                      : act.user?.role === 'DEVELOPER'
+                      ? 'Dev'
+                      : act.user?.role === 'ADMIN'
+                      ? 'Admin'
+                      : '';
+
+                  return (
+                    <div
+                      key={act.id}
+                      className="p-3 rounded-lg border border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-colors flex items-start justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div
+                          className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${
+                            isOverdue
+                              ? 'bg-rose-100 text-rose-700'
+                              : isDone
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-200/80 text-slate-700'
+                          }`}
+                        >
+                          {isOverdue ? (
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                          ) : isDone ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <span className="text-[10px] font-bold">
+                              {actorName.slice(0, 2).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="text-xs text-slate-800 leading-snug">
+                            <span className="font-semibold text-slate-900">{actorName}</span>
+                            {roleLabel && (
+                              <span className="ml-1.5 px-1 py-0.2 text-[9px] font-semibold text-slate-500 bg-slate-100 rounded border border-slate-200">
+                                {roleLabel}
+                              </span>
+                            )}{' '}
+                            <span className="text-slate-600">{act.message}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                            <span className="font-medium text-slate-600">{projectName}</span>
+                            {act.task && (
+                              <>
+                                <span>•</span>
+                                <span>Task #{act.task.taskNumber}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-400 whitespace-nowrap shrink-0 pt-0.5">
+                        {formatRelativeTime(act.createdAt)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -525,3 +631,4 @@ export const AdminDashboardPage: React.FC = () => {
     </div>
   );
 };
+
