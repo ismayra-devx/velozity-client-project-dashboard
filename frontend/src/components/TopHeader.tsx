@@ -64,11 +64,11 @@ export const TopHeader: React.FC = () => {
         <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
           <span
             className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-emerald-500' : 'bg-slate-400'
+              isConnected ? 'bg-emerald-500' : 'bg-blue-500'
             }`}
           />
-          <span className="text-slate-500">
-            {isConnected ? 'Connected' : 'Connecting...'}
+          <span className="text-slate-600 font-medium">
+            {isConnected ? 'Connected' : 'Demo Mode'}
           </span>
         </div>
 

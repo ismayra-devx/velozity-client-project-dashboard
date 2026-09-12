@@ -97,8 +97,8 @@ export const ActivityFeedPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Activity Feed</h1>
             <span className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-slate-100 rounded-full border border-slate-200">
-              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-              <span>{isConnected ? 'Live WebSocket' : 'Connecting'}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+              <span>{isConnected ? 'Live WebSocket' : 'Live Preview'}</span>
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">

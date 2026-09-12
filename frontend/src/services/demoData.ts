@@ -58,7 +58,7 @@ export const DEMO_PROJECTS: Project[] = [
   },
 ];
 
-let demoTasks: Task[] = [
+export const DEFAULT_TASKS: Task[] = [
   // Project 1 (PM1)
   {
     id: 'task_1',
@@ -354,7 +354,7 @@ let demoTasks: Task[] = [
   },
 ];
 
-let demoActivities: ActivityItem[] = [
+export const DEFAULT_ACTIVITIES: ActivityItem[] = [
   {
     id: 'act_1',
     taskId: 'task_3',
@@ -422,6 +422,42 @@ let demoActivities: ActivityItem[] = [
   },
 ];
 
+export function getDemoTasks(): Task[] {
+  try {
+    const saved = localStorage.getItem('velozity_demo_tasks');
+    if (saved) return JSON.parse(saved);
+  } catch {
+    // ignore
+  }
+  return DEFAULT_TASKS;
+}
+
+export function saveDemoTasks(tasks: Task[]) {
+  try {
+    localStorage.setItem('velozity_demo_tasks', JSON.stringify(tasks));
+  } catch {
+    // ignore
+  }
+}
+
+export function getDemoActivities(): ActivityItem[] {
+  try {
+    const saved = localStorage.getItem('velozity_demo_activities');
+    if (saved) return JSON.parse(saved);
+  } catch {
+    // ignore
+  }
+  return DEFAULT_ACTIVITIES;
+}
+
+export function saveDemoActivities(acts: ActivityItem[]) {
+  try {
+    localStorage.setItem('velozity_demo_activities', JSON.stringify(acts));
+  } catch {
+    // ignore
+  }
+}
+
 let currentSessionUser: User | null = null;
 
 export function handleDemoRequest<T = any>(endpoint: string, options: RequestInit = {}): T {
@@ -461,6 +497,9 @@ export function handleDemoRequest<T = any>(endpoint: string, options: RequestIni
   }
 
   const currentUser = currentSessionUser || DEMO_USERS[0];
+
+  const demoTasks = getDemoTasks();
+  const demoActivities = getDemoActivities();
 
   // 4. Dashboard Metrics
   if (cleanEndpoint.startsWith('/dashboard')) {
@@ -548,10 +587,29 @@ export function handleDemoRequest<T = any>(endpoint: string, options: RequestIni
     if (method === 'PATCH' && cleanEndpoint.includes('/status')) {
       const taskId = cleanEndpoint.split('/')[2];
       const body = JSON.parse(typeof options.body === 'string' ? options.body : '{}');
-      const target = demoTasks.find((t) => t.id === taskId);
+      const allTasks = getDemoTasks();
+      const target = allTasks.find((t) => t.id === taskId);
       if (target && body.status) {
         target.status = body.status;
         target.isOverdue = body.status === 'DONE' ? false : target.isOverdue;
+        saveDemoTasks(allTasks);
+
+        const currentActs = getDemoActivities();
+        const newAct: ActivityItem = {
+          id: `act_${Date.now()}`,
+          taskId: target.id,
+          projectId: target.projectId,
+          action: 'STATUS_UPDATE',
+          fromStatus: target.status,
+          toStatus: body.status,
+          message: `${currentUser.name} moved Task #${target.taskNumber} to ${body.status} · just now`,
+          createdAt: new Date().toISOString(),
+          user: currentUser,
+          task: target,
+          project: { id: target.projectId, name: target.project?.name || '' },
+        };
+        currentActs.unshift(newAct);
+        saveDemoActivities(currentActs);
       }
       return target as unknown as T;
     }
