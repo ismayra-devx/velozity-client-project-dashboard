@@ -103,29 +103,34 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl glass-panel p-6 border border-slate-800 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 border border-slate-200 shadow-2xl relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800/60"
+          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         <div className="flex items-center gap-2 mb-4">
-          <PlusCircle className="w-5 h-5 text-cyan-400" />
-          <h3 className="text-lg font-bold text-white">Create & Assign Task</h3>
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <PlusCircle className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Create & Assign Task</h3>
+            <p className="text-xs text-slate-500">Dispatch a new deliverable to an assigned developer.</p>
+          </div>
         </div>
 
         {error && (
-          <div className="p-3 mb-4 rounded-xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300">
+          <div className="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Task Title *
             </label>
             <input
@@ -133,20 +138,20 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Build Payment Gateway Webhooks"
-              className="w-full text-xs rounded-xl bg-slate-900 border border-slate-800 text-white px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+              className="w-full text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
               required
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Project *
               </label>
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                className="w-full text-xs rounded-xl bg-slate-900 border border-slate-800 text-white px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+                className="w-full text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                 required
               >
                 {projects.map((p) => (
@@ -158,13 +163,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Assign Developer *
               </label>
               <select
                 value={assignedToId}
                 onChange={(e) => setAssignedToId(e.target.value)}
-                className="w-full text-xs rounded-xl bg-slate-900 border border-slate-800 text-white px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+                className="w-full text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                 required
               >
                 {developers.map((d) => (
@@ -178,13 +183,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Priority *
               </label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                className="w-full text-xs rounded-xl bg-slate-900 border border-slate-800 text-white px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+                className="w-full text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
               >
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
@@ -194,21 +199,21 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Due Date *
               </label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full text-xs rounded-xl bg-slate-900 border border-slate-800 text-white px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+                className="w-full text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Description (Optional)
             </label>
             <textarea
@@ -216,22 +221,22 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Technical instructions and acceptance criteria..."
-              className="w-full text-xs rounded-xl bg-slate-900 border border-slate-800 text-white px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+              className="w-full text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 px-3 py-2.5 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-2.5 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white rounded-xl hover:bg-slate-800"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-bold text-white bg-cyan-500 hover:bg-cyan-400 rounded-xl transition-colors shadow-lg shadow-cyan-500/25 disabled:opacity-50"
+              className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors shadow-sm disabled:opacity-50"
             >
               {isSubmitting ? 'Creating...' : 'Create & Assign'}
             </button>

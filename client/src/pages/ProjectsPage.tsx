@@ -175,12 +175,28 @@ export const ProjectsPage: React.FC = () => {
                     </p>
                   )}
 
-                  {/* Task Progress */}
-                  <div className="space-y-1.5 my-3">
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>Task Completion</span>
+                  {/* Project Metadata: Task Count & Due Date */}
+                  <div className="grid grid-cols-2 gap-2 my-2 py-2 border-y border-slate-100 text-xs">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Total Tasks</span>
+                      <span className="font-semibold text-slate-800">{totalCount} tasks</span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Timeline</span>
                       <span className="font-semibold text-slate-800">
-                        {doneCount}/{totalCount} ({progressPct}%)
+                        {projectTasks.length > 0
+                          ? `Due ${new Date(Math.max(...projectTasks.map((t) => new Date(t.dueDate).getTime()))).toLocaleDateString()}`
+                          : 'Active Sprint'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Task Progress */}
+                  <div className="space-y-1.5 mb-3">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                      <span>Progress</span>
+                      <span className="font-semibold text-slate-800">
+                        {doneCount}/{totalCount} completed ({progressPct}%)
                       </span>
                     </div>
                     <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
@@ -194,8 +210,8 @@ export const ProjectsPage: React.FC = () => {
                   </div>
 
                   {/* Assigned Team */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-slate-400">Team assigned:</span>
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-[11px] text-slate-400">Assigned developers:</span>
                     <div className="flex items-center gap-1">
                       {assignedDevs.length === 0 ? (
                         <span className="text-[11px] text-slate-400 italic">None yet</span>
@@ -219,17 +235,29 @@ export const ProjectsPage: React.FC = () => {
                 </div>
 
                 {/* Card Actions */}
-                <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedProjectId(p.id);
-                      setIsCreateTaskOpen(true);
-                    }}
-                    className="flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Task</span>
-                  </button>
+                <div className="pt-4 mt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedProjectId(p.id);
+                        setIsCreateTaskOpen(true);
+                      }}
+                      className="flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create Task</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedProjectId(p.id);
+                        setIsCreateTaskOpen(true);
+                      }}
+                      className="text-xs font-medium text-slate-500 hover:text-slate-800 px-2 py-1.5 rounded hover:bg-slate-50 transition-colors"
+                    >
+                      Assign Developer
+                    </button>
+                  </div>
 
                   <button
                     onClick={() => navigate(`/tasks?projectId=${p.id}`)}
