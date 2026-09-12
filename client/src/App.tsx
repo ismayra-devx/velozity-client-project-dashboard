@@ -7,7 +7,13 @@ import { LoginPage } from './pages/LoginPage.js';
 import { AdminDashboardPage } from './pages/AdminDashboardPage.js';
 import { PMDashboardPage } from './pages/PMDashboardPage.js';
 import { DeveloperDashboardPage } from './pages/DeveloperDashboardPage.js';
+import { ProjectsPage } from './pages/ProjectsPage.js';
 import { TasksPage } from './pages/TasksPage.js';
+import { ClientsPage } from './pages/ClientsPage.js';
+import { TeamPage } from './pages/TeamPage.js';
+import { ActivityFeedPage } from './pages/ActivityFeedPage.js';
+import { NotificationsPage } from './pages/NotificationsPage.js';
+import { UserManagementPage } from './pages/UserManagementPage.js';
 
 export const App: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -53,7 +59,31 @@ export const App: React.FC = () => {
         <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8 overflow-y-auto">
           <Routes>
             <Route path="/" element={renderDashboardByRole()} />
+            <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route
+              path="/clients"
+              element={
+                user.role === 'ADMIN' ? (
+                  <ClientsPage />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route path="/team" element={<TeamPage />} />
+            <Route path="/activity" element={<ActivityFeedPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route
+              path="/users"
+              element={
+                user.role === 'ADMIN' ? (
+                  <UserManagementPage />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

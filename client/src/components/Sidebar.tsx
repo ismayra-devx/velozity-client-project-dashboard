@@ -84,7 +84,7 @@ export const Sidebar: React.FC = () => {
             </div>
             <nav className="space-y-1">
               <Link
-                to="/tasks"
+                to="/projects"
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   location.pathname === '/projects'
                     ? 'bg-blue-50 text-blue-600'
@@ -112,23 +112,51 @@ export const Sidebar: React.FC = () => {
               </Link>
 
               {user.role === 'ADMIN' && (
-                <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
+                <Link
+                  to="/clients"
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    location.pathname === '/clients'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
                   <Building2 className="w-4 h-4 text-slate-400" />
                   <span>Clients</span>
-                </div>
+                </Link>
               )}
 
-              <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
+              <Link
+                to="/team"
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  location.pathname === '/team'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
                 <Users className="w-4 h-4 text-slate-400" />
                 <span>Team</span>
-              </div>
+              </Link>
 
-              <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
+              <Link
+                to="/activity"
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  location.pathname === '/activity'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
                 <Activity className="w-4 h-4 text-slate-400" />
                 <span>Activity Feed</span>
-              </div>
+              </Link>
 
-              <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
+              <Link
+                to="/notifications"
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  location.pathname === '/notifications'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
                 <div className="flex items-center gap-3">
                   <Bell className="w-4 h-4 text-slate-400" />
                   <span>Notifications</span>
@@ -138,7 +166,7 @@ export const Sidebar: React.FC = () => {
                     {unreadNotificationCount}
                   </span>
                 )}
-              </div>
+              </Link>
             </nav>
           </div>
 
@@ -149,10 +177,17 @@ export const Sidebar: React.FC = () => {
                 Admin
               </div>
               <nav className="space-y-1">
-                <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer">
+                <Link
+                  to="/users"
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    location.pathname === '/users'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
                   <UserCog className="w-4 h-4 text-slate-400" />
                   <span>User Management</span>
-                </div>
+                </Link>
               </nav>
             </div>
           )}
